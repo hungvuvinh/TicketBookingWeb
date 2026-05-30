@@ -26,6 +26,10 @@ class DispatcherRepository {
     return Dispatcher.findOne({ email });
   }
 
+  async findByEmailWithPassword(email) {
+    return Dispatcher.findOne({ email }).select("+password_hash");
+  }
+
   async update(id, updateData) {
     return Dispatcher.findByIdAndUpdate(id, updateData, {
       new: true,

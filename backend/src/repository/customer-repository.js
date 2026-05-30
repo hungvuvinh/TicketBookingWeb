@@ -26,6 +26,14 @@ class CustomerRepository {
     return Customer.findOne({ email });
   }
 
+  async findByEmailWithPassword(email) {
+    return Customer.findOne({ email }).select("+password_hash");
+  }
+
+  async findByIdWithPassword(id) {
+    return Customer.findById(id).select("+password_hash");
+  }
+
   async update(id, updateData) {
     return Customer.findByIdAndUpdate(id, updateData, {
       new: true,

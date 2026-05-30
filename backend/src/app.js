@@ -5,6 +5,8 @@ const dns = require('dns');
 
 // Workaround: force public DNS servers for SRV resolution when local DNS refuses
 dns.setServers(['1.1.1.1', '8.8.8.8']);
+// Load mongoose models to ensure schemas are registered (prevents populate errors)
+require("./models");
 const apiRouter = require("./routes");
 
 const app = express();

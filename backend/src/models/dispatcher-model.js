@@ -10,6 +10,13 @@ const dispatcherSchema = new mongoose.Schema(
 			unique: true,
 			match: [/^\S+@\S+\.\S+$/, "Invalid email format"],
 		},
+		password_hash: {
+			type: String,
+			required: [false],
+			minlength: [60, "Password hash is invalid"],
+			maxlength: [60, "Password hash is invalid"],
+			select: false,
+		},
 		name: {
 			type: String,
 			required: [true, "Name is required"],

@@ -15,7 +15,33 @@ const customerSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
       unique: true,
+      sparse: true,
       match: [/^\S+@\S+\.\S+$/, "Invalid email format"],
+    },
+    password_hash: {
+      type: String,
+      required: [false],
+      minlength: [60, "Password hash is invalid"],
+      maxlength: [60, "Password hash is invalid"],
+      select: false,
+    },
+    email_verified: {
+      type: Boolean,
+      default: false,
+    },
+    email_verification: {
+      requested_at: {
+        type: Date,
+      },
+      token_hash: {
+        type: String,
+      },
+      expires_at: {
+        type: Date,
+      },
+      verified_at: {
+        type: Date,
+      },
     },
     phone_number: {
       type: String,
