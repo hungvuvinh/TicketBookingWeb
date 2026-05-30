@@ -37,6 +37,38 @@ class RouteRepository {
     });
   }
 
+  async findPointSuggestions(query = "") {
+    const trimmedQuery = query.trim();
+    const filter = trimmedQuery
+      ? {
+          $or: [
+            { origin: { $regex: trimmedQuery, $options: "i" } },
+            { destination: { $regex: trimmedQuery, $options: "i" } },
+          ],
+        }
+      : {};
+
+    const [origins, destinations] = await Promise.all([
+      Route.distinct("origin", filter),
+      Route.distinct("destination", filter),
+    ]);
+
+    const normalize = (value) => String(value || "").trim();
+    const uniqueValues = Array.from(
+      new Set([...origins, ...destinations].map(normalize).filter(Boolean))
+    );
+
+    return uniqueValues.sort((left, right) => left.localeCompare(right, "vi"));
+  }
+
+  async findDestinationsByOrigin(origin) {
+    if (!origin || !String(origin).trim()) return [];
+
+    return Route.distinct("destination", {
+      origin: { $regex: new RegExp(`^${String(origin).trim()}$`, "i") },
+    }).then((arr) => (Array.isArray(arr) ? arr.map((v) => String(v || "").trim()).filter(Boolean).sort((a, b) => a.localeCompare(b, "vi")) : []));
+  }
+
   async update(id, updateData) {
     return Route.findByIdAndUpdate(id, updateData, {
       new: true,

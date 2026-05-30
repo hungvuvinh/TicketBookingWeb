@@ -47,7 +47,28 @@ const getTripSeats = async (req, res) => {
   }
 };
 
+const createTrip = async (req, res) => {
+  try {
+    const { route_id, vehicle_id, driver_id, assistant_id, departure_time, arrival_time } = req.body || {};
+
+    const trip = await tripService.createTrip({
+      routeId: route_id,
+      vehicleId: vehicle_id,
+      driverId: driver_id,
+      assistantId: assistant_id,
+      departure_time,
+      arrival_time,
+    });
+
+    return res.status(201).json({ success: true, message: "Trip created successfully", data: trip });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({ success: false, message: error.message || "Internal server error" });
+  }
+};
+
 module.exports = {
   searchTrips,
   getTripSeats,
+  createTrip,
 };

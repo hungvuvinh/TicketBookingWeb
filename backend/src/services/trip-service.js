@@ -1,6 +1,8 @@
 const tripRepository = require("../repository/trip-repository");
 const routeRepository = require("../repository/route-repository");
 const ticketRepository = require("../repository/ticket-repository");
+const vehicleRepository = require("../repository/vehicle-repository");
+const operatorRepository = require("../repository/operator-repository");
 require("../models/vehicle-model");
 
 const getVehicleTotalSeats = (vehicle) => {
@@ -67,6 +69,95 @@ class TripService {
       booked_seats: totalSeats - availableCount,
       seats,
     };
+  }
+
+  async createTrip({ routeId, origin, destination, travel_time, vehicleId, driverId, assistantId, departure_time, arrival_time }) {
+    if ((!routeId && (!origin || !destination)) || !vehicleId || !driverId || !assistantId || !departure_time || !arrival_time) {
+      const err = new Error("Missing required fields to create trip");
+      err.statusCode = 400;
+      throw err;
+    }
+
+    let route = null;
+    if (routeId) {
+      route = await routeRepository.findById(routeId);
+    } else {
+      const found = await routeRepository.findByOriginDestination(origin, destination);
+      if (Array.isArray(found) && found.length > 0) {
+        // findByOriginDestination returns {_id} list
+        route = await routeRepository.findById(found[0]._id);
+      } else {
+        // create a route with provided travel_time or default 60
+        const tt = Number(travel_time) || 60;
+        route = await routeRepository.create({ origin: origin.trim(), destination: destination.trim(), travel_time: tt });
+      }
+    }
+
+    const [vehicle, driver, assistant] = await Promise.all([
+      vehicleRepository.findById(vehicleId),
+      operatorRepository.findById(driverId),
+      operatorRepository.findById(assistantId),
+    ]);
+
+    if (!route) {
+      const err = new Error("Route not found");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    if (!vehicle) {
+      const err = new Error("Vehicle not found");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    if (!driver || !assistant) {
+      const err = new Error("Driver or assistant not found");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const dep = new Date(departure_time);
+    const arr = new Date(arrival_time);
+    if (isNaN(dep.getTime()) || isNaN(arr.getTime()) || arr <= dep) {
+      const err = new Error("Invalid departure/arrival times");
+      err.statusCode = 400;
+      throw err;
+    }
+
+    // create trip
+    const trip = await tripRepository.create({
+      route: route._id,
+      vehicle: vehicle._id,
+      driver: driver._id,
+      assistant: assistant._id,
+      departure_time: dep,
+      arrival_time: arr,
+    });
+
+    // create tickets based on vehicle.total_seats
+    const totalSeats = Number(vehicle.total_seats || 0);
+    if (totalSeats > 0) {
+      const tickets = [];
+      for (let i = 1; i <= totalSeats; i += 1) {
+        tickets.push({ seat_number: i, status: "available", trip: trip._id });
+      }
+
+      try {
+        await ticketRepository.insertMany(tickets);
+      } catch (e) {
+        // best-effort: if tickets creation fails, delete the trip to avoid orphan
+        try {
+          await tripRepository.delete(trip._id);
+        } catch (delErr) {
+          // ignore
+        }
+        throw new Error("Failed to create initial tickets: " + (e.message || e));
+      }
+    }
+
+    // return the created trip with populated fields
+    return tripRepository.findById(trip._id);
   }
 }
 

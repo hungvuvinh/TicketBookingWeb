@@ -1,7 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./App.css";
+import CustomerPage from "./pages/CustomerPage.jsx";
+import CustomerBookingPage from "./pages/CustomerBookingPage.jsx";
+import DispatcherDashboardPage from "./pages/DispatcherDashboardPage.jsx";
+import DispatcherLoginPage from "./pages/DispatcherLoginPage.jsx";
 
 const API_BASE = "http://localhost:5000/api";
+const SESSION_KEY = "ticketbooking-session";
 
 function formatMoney(value = 0) {
   return new Intl.NumberFormat("vi-VN", {
@@ -11,9 +16,34 @@ function formatMoney(value = 0) {
   }).format(value);
 }
 
+function readStoredSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 function App() {
+  const [session, setSession] = useState(() => readStoredSession());
+  const isDispatcherRoute = typeof window !== "undefined" && window.location.pathname.toLowerCase().endsWith("/dispatcher");
+  const [authMode, setAuthMode] = useState("login");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authName, setAuthName] = useState("");
+  const [authPhone, setAuthPhone] = useState("");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
   const [origin, setOrigin] = useState("");
+  const [date, setDate] = useState("");
   const [destination, setDestination] = useState("");
+  const [routePoints, setRoutePoints] = useState([]);
+  const [destinationOptions, setDestinationOptions] = useState([]);
+  const [searched, setSearched] = useState(false);
+  const [customerStep, setCustomerStep] = useState("search");
   const [trips, setTrips] = useState([]);
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [seats, setSeats] = useState([]);
@@ -21,18 +51,230 @@ function App() {
   const [loadingTrips, setLoadingTrips] = useState(false);
   const [loadingSeats, setLoadingSeats] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
 
   const [customerName, setCustomerName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
-  const [paymentType, setPaymentType] = useState("cash");
+
+  const [dispatcherDrafts, setDispatcherDrafts] = useState({
+    routeName: "",
+    operatorName: "",
+    vehicleCode: "",
+    tripNote: "",
+  });
+
+  useEffect(() => {
+    if (session) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    } else {
+      localStorage.removeItem(SESSION_KEY);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (session?.role === "customer") {
+      setCustomerName(session.profile?.customer_name || "");
+      setPhoneNumber(session.profile?.phone_number || "");
+      setEmail(session.profile?.email || "");
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (session?.role === "dispatcher" && !isDispatcherRoute) {
+      window.location.replace("/dispatcher");
+    }
+  }, [isDispatcherRoute, session]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRoutePoints = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/routes/points`);
+        const payload = await response.json();
+
+        if (!response.ok || !payload.success) {
+          return;
+        }
+
+        if (!cancelled) {
+          setRoutePoints(Array.isArray(payload.data) ? payload.data : []);
+        }
+      } catch {
+        if (!cancelled) {
+          setRoutePoints([]);
+        }
+      }
+    };
+
+    loadRoutePoints();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const fetchDestinations = async (originValue) => {
+    if (!originValue || !String(originValue).trim()) {
+      setDestinationOptions([]);
+      return;
+    }
+
+    try {
+      const query = new URLSearchParams({ origin: originValue.trim() });
+      const response = await fetch(`${API_BASE}/routes/destinations?${query.toString()}`);
+      const payload = await response.json();
+
+      if (!response.ok || !payload.success) {
+        setDestinationOptions([]);
+        return;
+      }
+
+      setDestinationOptions(Array.isArray(payload.data) ? payload.data : []);
+    } catch (err) {
+      setDestinationOptions([]);
+    }
+  };
+
+  const handleOriginChange = (value) => {
+    setOrigin(value);
+    setDestination("");
+    fetchDestinations(value);
+  };
 
   const totalAmount = useMemo(() => {
     const seatPrice = selectedTrip?.vehicle?.seat_price || 0;
     return seatPrice * selectedSeats.length;
   }, [selectedSeats.length, selectedTrip]);
+
+  const resetTripState = () => {
+    setTrips([]);
+    setSelectedTrip(null);
+    setSeats([]);
+    setSelectedSeats([]);
+    setSearched(false);
+    setCustomerStep("search");
+  };
+
+  const handleLogout = () => {
+    setSession(null);
+    setAuthMode("login");
+    setAuthPassword("");
+    setError("");
+    setSuccessMessage("Đã đăng xuất.");
+    resetTripState();
+  };
+
+  const submitCustomerAuth = async (event) => {
+    event.preventDefault();
+    setError("");
+    setSuccessMessage("");
+
+    if (!authEmail.trim() || !authPassword) {
+      setError("Vui lòng nhập email và mật khẩu.");
+      return;
+    }
+
+    if (authMode === "register" && (!authName.trim() || !authPhone.trim())) {
+      setError("Vui lòng nhập họ tên và số điện thoại để đăng ký.");
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      const endpoint = authMode === "register" ? "/auth/register" : "/auth/login";
+      const payload =
+        authMode === "register"
+          ? {
+              customer_name: authName.trim(),
+              phone_number: authPhone.trim(),
+              email: authEmail.trim(),
+              password: authPassword,
+            }
+          : {
+              email: authEmail.trim(),
+              password: authPassword,
+            };
+
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Xác thực thất bại.");
+      }
+
+      const customer = result.data?.customer;
+      setSession({
+        role: "customer",
+        profile: customer || null,
+        token: null,
+      });
+      setCustomerName(customer?.customer_name || "");
+      setPhoneNumber(customer?.phone_number || "");
+      setEmail(customer?.email || "");
+
+      setSuccessMessage(
+        authMode === "register"
+          ? "Đăng ký thành công. Khung xác thực email đã sẵn sàng (chưa kích hoạt gửi email)."
+          : "Đăng nhập thành công."
+      );
+      setAuthPassword("");
+    } catch (requestError) {
+      setError(requestError.message || "Đã có lỗi khi xác thực tài khoản.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const submitDispatcherAuth = async (event) => {
+    event.preventDefault();
+    setError("");
+    setSuccessMessage("");
+
+    if (!authEmail.trim() || !authPassword) {
+      setError("Vui lòng nhập email và mật khẩu.");
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/dispatcher/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: authEmail.trim(),
+          password: authPassword,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Đăng nhập điều phối thất bại.");
+      }
+
+      const dispatcher = result.data?.dispatcher;
+      setSession({
+        role: "dispatcher",
+        profile: dispatcher || null,
+        token: result.data?.token || null,
+      });
+      setSuccessMessage("Đăng nhập điều phối thành công.");
+      setAuthPassword("");
+    } catch (requestError) {
+      setError(requestError.message || "Đã có lỗi khi đăng nhập điều phối.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
   const handleSearch = async (event) => {
     event.preventDefault();
@@ -43,9 +285,16 @@ function App() {
     setSelectedSeats([]);
 
     if (!origin.trim() || !destination.trim()) {
-      setError("Vui long nhap diem di va diem den.");
+      setError("Vui lòng nhập điểm đi và điểm đến.");
       return;
     }
+
+    if (!date) {
+      setError("Vui lòng chọn ngày.");
+      return;
+    }
+
+    setSearched(true);
 
     setLoadingTrips(true);
     try {
@@ -58,13 +307,14 @@ function App() {
       const payload = await response.json();
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.message || "Khong the tim chuyen.");
+        throw new Error(payload.message || "Không thể tìm chuyến.");
       }
 
       setTrips(payload.data || []);
+      setCustomerStep("booking");
     } catch (requestError) {
       setTrips([]);
-      setError(requestError.message || "Da co loi khi tim chuyen.");
+      setError(requestError.message || "Đã có lỗi khi tìm chuyến.");
     } finally {
       setLoadingTrips(false);
     }
@@ -81,7 +331,7 @@ function App() {
       const payload = await response.json();
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.message || "Khong the tai danh sach ghe.");
+        throw new Error(payload.message || "Không thể tải danh sách ghế.");
       }
 
       setSelectedTrip(trip);
@@ -89,7 +339,7 @@ function App() {
     } catch (requestError) {
       setSelectedTrip(null);
       setSeats([]);
-      setError(requestError.message || "Da co loi khi tai danh sach ghe.");
+      setError(requestError.message || "Đã có lỗi khi tải danh sách ghế.");
     } finally {
       setLoadingSeats(false);
     }
@@ -106,22 +356,22 @@ function App() {
   };
 
   const submitBooking = async (event) => {
-    event.preventDefault();
+    if (event && event.preventDefault) event.preventDefault();
     setError("");
     setSuccessMessage("");
 
     if (!selectedTrip) {
-      setError("Ban chua chon chuyen di.");
+      setError("Bạn chưa chọn chuyến đi.");
       return;
     }
 
     if (selectedSeats.length === 0) {
-      setError("Vui long chon it nhat 1 ghe.");
+      setError("Vui lòng chọn ít nhất 1 ghế.");
       return;
     }
 
     if (!customerName.trim() || !phoneNumber.trim()) {
-      setError("Vui long nhap ten va so dien thoai.");
+      setError("Vui lòng nhập tên và số điện thoại.");
       return;
     }
 
@@ -142,7 +392,7 @@ function App() {
             ...(email.trim() ? { email: email.trim() } : {}),
           },
           payment: {
-            payment_type: paymentType,
+            payment_type: "online",
           },
         }),
       });
@@ -150,127 +400,121 @@ function App() {
       const payload = await response.json();
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.message || "Dat ve khong thanh cong.");
+        throw new Error(payload.message || "Đặt vé không thành công.");
       }
 
-      setSuccessMessage("Dat ve thanh cong. Ve da duoc luu vao he thong.");
+      setSuccessMessage("Đặt vé thành công. Vé đã được lưu vào hệ thống.");
       setSelectedSeats([]);
       await loadSeats(selectedTrip);
+      return true;
     } catch (requestError) {
-      setError(requestError.message || "Da co loi khi dat ve.");
+      setError(requestError.message || "Đã có lỗi khi đặt vé.");
+      return false;
     } finally {
       setSubmitting(false);
     }
   };
 
+  const updateDispatcherDraft = (field, value) => {
+    setDispatcherDrafts((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  if (isDispatcherRoute) {
+    if (session?.role === "dispatcher") {
+      return (
+        <DispatcherDashboardPage
+          session={session}
+          handleLogout={handleLogout}
+          dispatcherDrafts={dispatcherDrafts}
+          updateDispatcherDraft={updateDispatcherDraft}
+          error={error}
+          successMessage={successMessage}
+        />
+      );
+    }
+
+    return (
+      <DispatcherLoginPage
+        submitDispatcherAuth={submitDispatcherAuth}
+        authEmail={authEmail}
+        setAuthEmail={setAuthEmail}
+        authPassword={authPassword}
+        setAuthPassword={setAuthPassword}
+        authLoading={authLoading}
+        error={error}
+        successMessage={successMessage}
+      />
+    );
+  }
+
   return (
-    <main className="booking-page">
-      <header className="hero-card">
-        <p className="eyebrow">TicketBookingWeb</p>
-        <h1>Dat Ve Xe Khach</h1>
-        <p>Tim chuyen di, chon ghe, va hoan tat dat ve chi trong mot man hinh.</p>
-      </header>
-
-      <section className="panel">
-        <h2>1) Tim Chuyen</h2>
-        <form className="search-form" onSubmit={handleSearch}>
-          <label>
-            Diem di
-            <input value={origin} onChange={(event) => setOrigin(event.target.value)} placeholder="VD: Ha Noi" />
-          </label>
-          <label>
-            Diem den
-            <input
-              value={destination}
-              onChange={(event) => setDestination(event.target.value)}
-              placeholder="VD: Hai Phong"
-            />
-          </label>
-          <button type="submit" disabled={loadingTrips}>
-            {loadingTrips ? "Dang tim..." : "Tim chuyen"}
-          </button>
-        </form>
-
-        <div className="trip-list">
-          {trips.map((trip) => {
-            const isActive = selectedTrip?._id === trip._id;
-            return (
-              <button key={trip._id} className={`trip-card ${isActive ? "active" : ""}`} onClick={() => loadSeats(trip)} type="button">
-                <p className="trip-route">
-                  {trip.route?.origin} - {trip.route?.destination}
-                </p>
-                <p>{new Date(trip.departure_time).toLocaleString("vi-VN")}</p>
-                <p>{trip.vehicle?.vehicle_type} · {formatMoney(trip.vehicle?.seat_price || 0)}/ghe</p>
-              </button>
-            );
-          })}
-          {!loadingTrips && trips.length === 0 && <p className="hint">Chua co ket qua tim chuyen.</p>}
-        </div>
-      </section>
-
-      <section className="panel">
-        <h2>2) Chon Ghe</h2>
-        {loadingSeats && <p className="hint">Dang tai so do ghe...</p>}
-        {!loadingSeats && selectedTrip && (
-          <div className="seat-grid">
-            {seats.map((seat) => {
-              const disabled = seat.status !== "available";
-              const selected = selectedSeats.includes(seat.seat_number);
-              return (
-                <button
-                  key={seat.seat_number}
-                  type="button"
-                  disabled={disabled}
-                  className={`seat ${seat.status} ${selected ? "selected" : ""}`}
-                  onClick={() => toggleSeat(seat.seat_number)}
-                >
-                  {seat.seat_number}
-                </button>
-              );
-            })}
-          </div>
-        )}
-        {!selectedTrip && <p className="hint">Chon mot chuyen de xem ghe.</p>}
-      </section>
-
-      <section className="panel">
-        <h2>3) Xac Nhan Dat Ve</h2>
-        <form className="checkout-form" onSubmit={submitBooking}>
-          <label>
-            Ho ten
-            <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Nguyen Van A" />
-          </label>
-          <label>
-            So dien thoai
-            <input value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} placeholder="09xxxxxxxx" />
-          </label>
-          <label>
-            Email (tuy chon)
-            <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="abc@email.com" />
-          </label>
-          <label>
-            Hinh thuc thanh toan
-            <select value={paymentType} onChange={(event) => setPaymentType(event.target.value)}>
-              <option value="cash">Tien mat</option>
-              <option value="bank-transfer">Chuyen khoan</option>
-              <option value="e-wallet">Vi dien tu</option>
-            </select>
-          </label>
-
-          <div className="summary">
-            <p>Ghe da chon: {selectedSeats.length > 0 ? selectedSeats.join(", ") : "Chua chon"}</p>
-            <p>Tam tinh: {formatMoney(totalAmount)}</p>
-          </div>
-
-          <button type="submit" disabled={submitting}>
-            {submitting ? "Dang dat ve..." : "Dat ve ngay"}
-          </button>
-        </form>
-      </section>
-
-      {error && <p className="alert error">{error}</p>}
-      {successMessage && <p className="alert success">{successMessage}</p>}
-    </main>
+    customerStep === "search" ? (
+      <CustomerPage
+        session={session}
+        handleLogout={handleLogout}
+        authMode={authMode}
+        setAuthMode={setAuthMode}
+        authLoading={authLoading}
+        authName={authName}
+        setAuthName={setAuthName}
+        authPhone={authPhone}
+        setAuthPhone={setAuthPhone}
+        authEmail={authEmail}
+        setAuthEmail={setAuthEmail}
+        authPassword={authPassword}
+        setAuthPassword={setAuthPassword}
+        submitCustomerAuth={submitCustomerAuth}
+        origin={origin}
+        setOrigin={setOrigin}
+        date={date}
+        setDate={setDate}
+        destination={destination}
+        setDestination={setDestination}
+        handleSearch={handleSearch}
+        loadingTrips={loadingTrips}
+        routePoints={routePoints}
+        destinationOptions={destinationOptions}
+        handleOriginChange={handleOriginChange}
+        error={error}
+        successMessage={successMessage}
+      />
+    ) : (
+      <CustomerBookingPage
+        session={session}
+        handleLogout={handleLogout}
+        handleBackToSearch={() => {
+          setCustomerStep("search");
+          setError("");
+          setSuccessMessage("");
+        }}
+        origin={origin}
+        date={date}
+        destination={destination}
+        searched={searched}
+        trips={trips}
+        selectedTrip={selectedTrip}
+        loadSeats={loadSeats}
+        loadingSeats={loadingSeats}
+        seats={seats}
+        selectedSeats={selectedSeats}
+        toggleSeat={toggleSeat}
+        customerName={customerName}
+        setCustomerName={setCustomerName}
+        phoneNumber={phoneNumber}
+        setPhoneNumber={setPhoneNumber}
+        email={email}
+        setEmail={setEmail}
+        submitBooking={submitBooking}
+        submitting={submitting}
+        totalAmount={totalAmount}
+        error={error}
+        successMessage={successMessage}
+        formatMoney={formatMoney}
+      />
+    )
   );
 }
 
