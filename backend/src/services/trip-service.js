@@ -118,9 +118,22 @@ class TripService {
     }
 
     const dep = new Date(departure_time);
-    const arr = new Date(arrival_time);
-    if (isNaN(dep.getTime()) || isNaN(arr.getTime()) || arr <= dep) {
-      const err = new Error("Invalid departure/arrival times");
+    if (isNaN(dep.getTime())) {
+      const err = new Error("Invalid departure time");
+      err.statusCode = 400;
+      throw err;
+    }
+
+    let arr;
+    if (arrival_time) {
+      arr = new Date(arrival_time);
+    } else {
+      const mins = Number(travel_time) || 0;
+      arr = new Date(dep.getTime() + mins * 60000);
+    }
+
+    if (isNaN(arr.getTime()) || arr <= dep) {
+      const err = new Error("Invalid arrival time computed or provided");
       err.statusCode = 400;
       throw err;
     }

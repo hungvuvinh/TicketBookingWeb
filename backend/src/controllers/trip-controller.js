@@ -1,4 +1,5 @@
 const tripService = require("../services/trip-service");
+const tripRepository = require("../repository/trip-repository");
 
 const searchTrips = async (req, res) => {
   try {
@@ -67,8 +68,19 @@ const createTrip = async (req, res) => {
   }
 };
 
+const listTrips = async (req, res) => {
+  try {
+    const { skip = 0, limit = 50 } = req.query;
+    const trips = await tripRepository.findAll({}, { skip: Number(skip), limit: Number(limit) });
+    return res.status(200).json({ success: true, message: 'Trips fetched', data: trips });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+  }
+};
+
 module.exports = {
   searchTrips,
   getTripSeats,
   createTrip,
+  listTrips,
 };

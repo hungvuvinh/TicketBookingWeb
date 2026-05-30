@@ -1,5 +1,5 @@
 const express = require("express");
-const { searchTrips, getTripSeats, createTrip } = require("../controllers/trip-controller");
+const { searchTrips, getTripSeats, createTrip, listTrips } = require("../controllers/trip-controller");
 const { createBooking } = require("../controllers/booking-controller");
 const { register, login } = require("../controllers/auth-controller");
 const { register: dispatcherRegister, login: dispatcherLogin } = require('../controllers/dispatcher-auth-controller');
@@ -20,6 +20,7 @@ router.get("/", (req, res) => {
 
 router.post("/trips", createTrip);
 router.get("/trips/search", searchTrips);
+router.get('/trips', listTrips);
 router.get("/trips/:tripId/seats", getTripSeats);
 router.get("/routes/points", getPointSuggestions);
 router.get("/routes/destinations", getDestinationsForOrigin);
