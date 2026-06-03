@@ -1,4 +1,7 @@
 import { useState } from "react";
+import Alert from "../components/Alert.jsx";
+import Modal from "../components/Modal.jsx";
+import Navbar from "../components/Navbar.jsx";
 
 export default function CustomerBookingPage({
   session,
@@ -29,19 +32,24 @@ export default function CustomerBookingPage({
   formatMoney,
 }) {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [localError, setLocalError] = useState("");
 
   const handleTripCheckout = (event) => {
     event.preventDefault();
+    setLocalError("");
 
     if (!selectedTrip) {
+      setLocalError("Vui lòng chọn một chuyến xe.");
       return;
     }
 
     if (selectedSeats.length === 0) {
+      setLocalError("Vui lòng chọn ít nhất 1 ghế.");
       return;
     }
 
     if (!customerName.trim() || !phoneNumber.trim()) {
+      setLocalError("Vui lòng nhập tên và số điện thoại.");
       return;
     }
 
@@ -55,155 +63,242 @@ export default function CustomerBookingPage({
     }
   };
 
-  return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div className="topbar-inner">
-          <div className="brand">
-            <div className="brand-title">TicketBooking</div>
-            <div className="brand-sub">Đặt vé nhanh — An tâm</div>
-          </div>
-          <nav className="top-actions">
-            <button type="button" className="login-btn" onClick={handleBackToSearch}>
-              Tìm tuyến khác
-            </button>
-            {session ? (
-              <button type="button" className="login-btn" onClick={handleLogout}>
-                Đăng xuất
-              </button>
-            ) : null}
-          </nav>
-        </div>
-      </header>
+  const displayError = localError || error;
 
-      <section className="hero-card hero-center booking-hero">
-        <div className="hero-copy">
-          <p className="eyebrow">Kết quả tìm tuyến</p>
-          <h1>
+  return (
+    <main className="min-h-screen animate-rise-up text-blush-900">
+      <Navbar tagline="Đặt vé & thanh toán">
+        <button type="button" className="btn-secondary" onClick={handleBackToSearch}>
+          Tìm tuyến khác
+        </button>
+        {session ? (
+          <button type="button" className="btn-ghost" onClick={handleLogout}>
+            Đăng xuất
+          </button>
+        ) : null}
+      </Navbar>
+
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
+        <header className="card-panel slide-in-down">
+          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-blush-500">Hành trình của bạn</p>
+          <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-blush-900 sm:text-4xl">
             {origin || "Điểm đi"} → {destination || "Điểm đến"}
           </h1>
-          <p>
-            Ngày khởi hành: {date || "Chưa chọn"}
-          </p>
-        </div>
-      </section>
+          <p className="mt-2 text-blush-600">Ngày khởi hành: {date || "Chưa chọn"}</p>
+        </header>
 
-      <section className="panel panel-soft">
-        <h2>Danh sách chuyến</h2>
-        <div className="trip-list">
-          {searched && trips.length === 0 && <p className="hint">Chưa có chuyến nào được hiển thị.</p>}
-          {searched &&
-            trips.map((trip) => (
-              <button
-                key={trip._id}
-                type="button"
-                className={selectedTrip?._id === trip._id ? "trip-card active" : "trip-card"}
-                onClick={() => loadSeats(trip)}
-              >
-                <p className="trip-route">{trip.route?.route_name || `${trip.origin} → ${trip.destination}`}</p>
-                <p>{trip.departure_time ? new Date(trip.departure_time).toLocaleString("vi-VN") : "Chưa có giờ khởi hành"}</p>
-                <p>{trip.vehicle?.vehicle_name || "Xe chưa xác định"}</p>
-              </button>
-            ))}
-        </div>
-      </section>
+        <div className="grid gap-6 lg:grid-cols-[1.35fr_0.95fr]">
+          <div className="space-y-6">
+            <section className="card-panel">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="font-display text-xl font-bold text-blush-900">Danh sách chuyến</h2>
+                <span className="rounded-full bg-blush-100 px-3 py-1 text-xs font-semibold text-blush-600">
+                  {trips.length} chuyến
+                </span>
+              </div>
 
-      <section className="panel panel-soft">
-        <h2>Chọn ghế</h2>
-        {loadingSeats && <p className="hint">Đang tải sơ đồ ghế...</p>}
-        {!loadingSeats && selectedTrip && (
-          <div className="seat-grid">
-            {seats.map((seat) => {
-              const disabled = seat.status !== "available";
-              const selected = selectedSeats.includes(seat.seat_number);
+              <div className="space-y-3">
+                {searched && trips.length === 0 && (
+                  <p className="rounded-2xl border border-blush-100 bg-blush-50/80 px-4 py-3 text-sm text-blush-700">
+                    Chưa có chuyến nào phù hợp với tuyến này.
+                  </p>
+                )}
 
-              return (
-                <button
-                  key={seat.seat_number}
-                  type="button"
-                  disabled={disabled}
-                  className={`seat ${seat.status} ${selected ? "selected" : ""}`}
-                  onClick={() => toggleSeat(seat.seat_number)}
-                >
-                  {seat.seat_number}
+                {trips.map((trip, index) => {
+                  const active = selectedTrip?._id === trip._id;
+                  return (
+                    <button
+                      key={trip._id}
+                      type="button"
+                      className={`card-hover w-full rounded-3xl border px-5 py-4 text-left transition-smooth-fast ${
+                        active
+                          ? "border-blush-400 bg-gradient-to-r from-blush-50 to-white shadow-md"
+                          : "border-blush-100 bg-white hover:border-blush-300 hover:bg-blush-50/50"
+                      }`}
+                      onClick={() => loadSeats(trip)}
+                      style={{
+                        animation: `slide-in-up 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${index * 0.05}s both`,
+                      }}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-lg font-semibold text-blush-900">
+                          {trip.route?.route_name || `${trip.origin} → ${trip.destination}`}
+                        </p>
+                        <span className="rounded-full bg-blush-100 px-3 py-1 text-xs font-semibold text-blush-600">
+                          {trip.vehicle?.vehicle_name || trip.vehicle?.license_plate || "Xe"}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-blush-600">
+                        {trip.departure_time
+                          ? new Date(trip.departure_time).toLocaleString("vi-VN")
+                          : "Chưa có giờ khởi hành"}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="card-panel">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="font-display text-xl font-bold text-blush-900">Sơ đồ ghế</h2>
+                <span className="text-sm text-blush-500">{selectedSeats.length} ghế đã chọn</span>
+              </div>
+
+              {loadingSeats ? (
+                <p className="rounded-2xl border border-blush-100 bg-blush-50/80 px-4 py-3 text-sm text-blush-700">
+                  Đang tải sơ đồ ghế...
+                </p>
+              ) : selectedTrip ? (
+                <>
+                  <div className="mb-4 flex flex-wrap gap-4 text-xs text-blush-600">
+                    <span className="flex items-center gap-2">
+                      <span className="h-4 w-4 rounded-lg border border-blush-200 bg-white" /> Trống
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="h-4 w-4 rounded-lg bg-gradient-to-br from-blush-400 to-blush-600" /> Đã chọn
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="h-4 w-4 rounded-lg bg-blush-100" /> Đã đặt
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8">
+                    {seats.map((seat) => {
+                      const disabled = seat.status !== "available";
+                      const selected = selectedSeats.includes(seat.seat_number);
+                      return (
+                        <button
+                          key={seat.seat_number}
+                          type="button"
+                          disabled={disabled}
+                          className={`flex h-11 items-center justify-center rounded-xl text-xs font-semibold transition ${
+                            disabled
+                              ? "cursor-not-allowed bg-blush-100 text-blush-300"
+                              : selected
+                                ? "bg-gradient-to-br from-blush-400 to-blush-600 text-white shadow-md"
+                                : "border border-blush-200 bg-white text-blush-700 hover:border-blush-400 hover:bg-blush-50"
+                          }`}
+                          onClick={() => toggleSeat(seat.seat_number)}
+                        >
+                          {seat.seat_number}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <p className="rounded-2xl border border-blush-100 bg-blush-50/80 px-4 py-3 text-sm text-blush-700">
+                  Chọn một chuyến để xem ghế trống.
+                </p>
+              )}
+            </section>
+          </div>
+
+          <aside className="space-y-6">
+            <section className="card-panel lg:sticky lg:top-24">
+              <h2 className="font-display text-xl font-bold text-blush-900">Thanh toán</h2>
+              <form onSubmit={handleTripCheckout} className="mt-5 space-y-4">
+                <label className="block space-y-2">
+                  <span className="label-text">Họ tên</span>
+                  <input
+                    value={customerName}
+                    onChange={(event) => setCustomerName(event.target.value)}
+                    placeholder="Nguyễn Văn A"
+                    className="input-field"
+                  />
+                </label>
+                <label className="block space-y-2">
+                  <span className="label-text">Số điện thoại</span>
+                  <input
+                    value={phoneNumber}
+                    onChange={(event) => setPhoneNumber(event.target.value)}
+                    placeholder="09xxxxxxxx"
+                    className="input-field"
+                  />
+                </label>
+                <label className="block space-y-2">
+                  <span className="label-text">Email (tùy chọn)</span>
+                  <input
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="abc@email.com"
+                    className="input-field"
+                  />
+                </label>
+
+                <div className="rounded-2xl bg-gradient-to-br from-blush-50 to-mauve-50 p-4 text-sm text-blush-700">
+                  <p className="font-semibold text-blush-800">Hình thức thanh toán</p>
+                  <p className="mt-1">Thanh toán trực tuyến (cổng thanh toán)</p>
+                </div>
+
+                <div className="space-y-2 rounded-2xl border border-blush-100 bg-blush-50/60 p-4 text-sm">
+                  <p className="text-blush-600">
+                    Ghế:{" "}
+                    <span className="font-semibold text-blush-900">
+                      {selectedSeats.length > 0 ? selectedSeats.join(", ") : "Chưa chọn"}
+                    </span>
+                  </p>
+                  <p className="text-blush-600">
+                    Tạm tính:{" "}
+                    <span className="font-display text-lg font-bold text-blush-700">{formatMoney(totalAmount)}</span>
+                  </p>
+                </div>
+
+                <button type="submit" disabled={submitting} className="btn-primary h-12 w-full">
+                  {submitting ? "Đang xử lý..." : "Thanh toán"}
                 </button>
-              );
-            })}
+              </form>
+            </section>
+          </aside>
+        </div>
+
+        {(displayError || successMessage) && (
+          <div className="space-y-3">
+            {displayError ? <Alert type="error">{displayError}</Alert> : null}
+            {successMessage ? <Alert type="success">{successMessage}</Alert> : null}
           </div>
         )}
-        {!selectedTrip && <p className="hint">Chọn một chuyến để xem ghế.</p>}
-      </section>
 
-      <section className="panel panel-soft booking-panel">
-        <h2>Thông tin thanh toán</h2>
-        <form className="checkout-form" onSubmit={handleTripCheckout}>
-          <label>
-            Họ tên
-            <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Nguyễn Văn A" />
-          </label>
-          <label>
-            Số điện thoại
-            <input value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} placeholder="09xxxxxxxx" />
-          </label>
-          <label>
-            Email (tùy chọn)
-            <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="abc@email.com" />
-          </label>
-          <label>
-            Hình thức thanh toán
-            <div>Thanh toán trực tuyến (cổng thanh toán)</div>
-          </label>
+        <footer className="rounded-4xl border border-white/70 bg-white/60 p-5 text-center text-sm text-blush-500">
+          © {new Date().getFullYear()} TicketBooking — Đặt vé trực tuyến nhanh chóng và an toàn.
+        </footer>
+      </div>
 
-          <div className="summary">
-            <p>Ghế đã chọn: {selectedSeats.length > 0 ? selectedSeats.join(", ") : "Chưa chọn"}</p>
-            <p>Tạm tính: {formatMoney(totalAmount)}</p>
-          </div>
-
-          <button type="submit" disabled={submitting}>
-            {submitting ? "Đang xử lý..." : "Thanh toán"}
-          </button>
-        </form>
-      </section>
-
-      {showPaymentModal && (
-        <div className="modal-overlay" onClick={() => !submitting && setShowPaymentModal(false)}>
-          <div className="modal-dialog" onClick={(event) => event.stopPropagation()}>
-            <button className="modal-close" onClick={() => !submitting && setShowPaymentModal(false)} aria-label="Close">
-              ×
-            </button>
-            <div className="panel panel-soft">
-              <h2>Thanh toán</h2>
-              <div className="payment-summary">
-                <p>
-                  <strong>Chuyến:</strong> {selectedTrip?.route?.route_name || `${selectedTrip?.origin} → ${selectedTrip?.destination}`}
-                </p>
-                <p>
-                  <strong>Ghế:</strong> {selectedSeats.join(", ")}
-                </p>
-                <p>
-                  <strong>Tổng:</strong> {formatMoney(totalAmount)}
-                </p>
-                <p><strong>Hình thức thanh toán:</strong> Thanh toán trực tuyến (cổng thanh toán)</p>
-              </div>
-
-              <div style={{ display: "flex", gap: "0.6rem", marginTop: "0.8rem" }}>
-                <button type="button" onClick={confirmPayment} disabled={submitting}>
-                  {submitting ? "Đang xử lý..." : "Xác nhận thanh toán"}
-                </button>
-                <button type="button" className="ghost-link" onClick={() => !submitting && setShowPaymentModal(false)}>
-                  Hủy
-                </button>
-              </div>
-            </div>
-          </div>
+      <Modal
+        open={showPaymentModal}
+        onClose={() => !submitting && setShowPaymentModal(false)}
+        title="Hoàn tất đơn đặt vé"
+        subtitle="Xác nhận thanh toán"
+      >
+        <div className="space-y-3 rounded-2xl border border-blush-100 bg-blush-50/70 p-5 text-sm text-blush-800">
+          <p>
+            <strong>Chuyến:</strong>{" "}
+            {selectedTrip?.route?.route_name || `${selectedTrip?.origin} → ${selectedTrip?.destination}`}
+          </p>
+          <p>
+            <strong>Ghế:</strong> {selectedSeats.join(", ")}
+          </p>
+          <p>
+            <strong>Tổng:</strong> {formatMoney(totalAmount)}
+          </p>
+          <p>
+            <strong>Hình thức:</strong> Thanh toán trực tuyến
+          </p>
         </div>
-      )}
 
-      {error && <p className="alert error">{error}</p>}
-      {successMessage && <p className="alert success">{successMessage}</p>}
-      <footer className="site-footer">
-        © {new Date().getFullYear()} TicketBooking — Dịch vụ đặt vé trực tuyến.
-      </footer>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => !submitting && setShowPaymentModal(false)}
+          >
+            Hủy
+          </button>
+          <button type="button" onClick={confirmPayment} disabled={submitting} className="btn-primary">
+            {submitting ? "Đang xử lý..." : "Xác nhận thanh toán"}
+          </button>
+        </div>
+      </Modal>
     </main>
   );
 }

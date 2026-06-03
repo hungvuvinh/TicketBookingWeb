@@ -37,13 +37,14 @@ const tripSchema = new mongoose.Schema(
 	}
 );
 
-tripSchema.pre("validate", function (next) {
+
+tripSchema.pre("validate", function () {
 	if (
 		this.driver &&
 		this.assistant &&
 		this.driver.toString() === this.assistant.toString()
 	) {
-		return next(new Error("Driver and assistant must be different operators"));
+		throw new Error("Driver and assistant must be different operators");
 	}
 
 	if (
@@ -51,10 +52,9 @@ tripSchema.pre("validate", function (next) {
 		this.arrival_time &&
 		this.arrival_time <= this.departure_time
 	) {
-		return next(new Error("Arrival time must be later than departure time"));
+		throw new Error("Arrival time must be later than departure time");
 	}
 
-	return next();
 });
 
 const Trip = mongoose.model("Trip", tripSchema);

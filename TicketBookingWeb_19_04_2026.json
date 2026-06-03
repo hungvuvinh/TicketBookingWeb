@@ -1,0 +1,487 @@
+{
+  "collections": {
+    "TicketBookingWeb.customers": {
+      "ns": "TicketBookingWeb.customers",
+      "jsonSchema": {
+        "bsonType": "object",
+        "required": [
+          "_id",
+          "customer_name",
+          "email",
+          "phone_number"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "customer_name": {
+            "bsonType": "string"
+          },
+          "email": {
+            "bsonType": "string"
+          },
+          "phone_number": {
+            "bsonType": "string"
+          }
+        }
+      }
+    },
+    "TicketBookingWeb.dispatchers": {
+      "ns": "TicketBookingWeb.dispatchers",
+      "jsonSchema": {
+        "bsonType": "object",
+        "required": [
+          "_id",
+          "email",
+          "name",
+          "phone_number"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "email": {
+            "bsonType": "string"
+          },
+          "name": {
+            "bsonType": "string"
+          },
+          "phone_number": {
+            "bsonType": "string"
+          }
+        }
+      }
+    },
+    "TicketBookingWeb.operator": {
+      "ns": "TicketBookingWeb.operator",
+      "jsonSchema": {
+        "bsonType": "object",
+        "required": [
+          "_id",
+          "email",
+          "license",
+          "name",
+          "phone_number",
+          "role"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "email": {
+            "bsonType": "string"
+          },
+          "license": {
+            "bsonType": "string"
+          },
+          "name": {
+            "bsonType": "string"
+          },
+          "phone_number": {
+            "bsonType": "string"
+          },
+          "role": {
+            "bsonType": "string"
+          }
+        }
+      }
+    },
+    "TicketBookingWeb.routes": {
+      "ns": "TicketBookingWeb.routes",
+      "jsonSchema": {
+        "bsonType": "object",
+        "required": [
+          "_id",
+          "from",
+          "to"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "from": {
+            "bsonType": "string"
+          },
+          "to": {
+            "bsonType": "string"
+          }
+        }
+      }
+    },
+    "TicketBookingWeb.tickets": {
+      "ns": "TicketBookingWeb.tickets",
+      "jsonSchema": {
+        "bsonType": "object",
+        "required": [
+          "_id",
+          "seat_number",
+          "status",
+          "trip"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "seat_number": {
+            "bsonType": "int"
+          },
+          "status": {
+            "bsonType": "string"
+          },
+          "trip": {
+            "bsonType": "objectId"
+          }
+        }
+      }
+    },
+    "TicketBookingWeb.orders": {
+      "ns": "TicketBookingWeb.orders",
+      "jsonSchema": {
+        "bsonType": "object",
+        "required": [
+          "_id",
+          "booked_at",
+          "customer",
+          "status",
+          "tickets",
+          "trip"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "booked_at": {
+            "bsonType": "string"
+          },
+          "customer": {
+            "bsonType": "objectId"
+          },
+          "status": {
+            "bsonType": "string"
+          },
+          "tickets": {
+            "bsonType": "array",
+            "items": {
+              "bsonType": "objectId"
+            }
+          },
+          "trip": {
+            "bsonType": "objectId"
+          }
+        }
+      }
+    },
+    "TicketBookingWeb.trips": {
+      "ns": "TicketBookingWeb.trips",
+      "jsonSchema": {
+        "bsonType": "object",
+        "required": [
+          "_id",
+          "arrival_time",
+          "assistant",
+          "departure_time",
+          "driver",
+          "route",
+          "vehicle"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "arrival_time": {
+            "bsonType": "date"
+          },
+          "assistant": {
+            "bsonType": "objectId"
+          },
+          "departure_time": {
+            "bsonType": "date"
+          },
+          "driver": {
+            "bsonType": "objectId"
+          },
+          "route": {
+            "bsonType": "objectId"
+          },
+          "vehicle": {
+            "bsonType": "objectId"
+          }
+        }
+      }
+    },
+    "TicketBookingWeb.vehicles": {
+      "ns": "TicketBookingWeb.vehicles",
+      "jsonSchema": {
+        "bsonType": "object",
+        "required": [
+          "_id",
+          "lisence_plate",
+          "seat_price",
+          "total_seat",
+          "vehicle_type"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "lisence_plate": {
+            "bsonType": "string"
+          },
+          "seat_price": {
+            "bsonType": "double"
+          },
+          "total_seat": {
+            "bsonType": "int"
+          },
+          "vehicle_type": {
+            "bsonType": "string"
+          }
+        }
+      }
+    },
+    "TicketBookingWeb.payments": {
+      "ns": "TicketBookingWeb.payments",
+      "jsonSchema": {
+        "bsonType": "object",
+        "required": [
+          "_id",
+          "amount",
+          "customer",
+          "executed_at",
+          "order",
+          "payment_type",
+          "reference_number",
+          "status"
+        ],
+        "properties": {
+          "_id": {
+            "bsonType": "objectId"
+          },
+          "amount": {
+            "bsonType": "double"
+          },
+          "customer": {
+            "bsonType": "objectId"
+          },
+          "executed_at": {
+            "bsonType": "string"
+          },
+          "order": {
+            "bsonType": "objectId"
+          },
+          "payment_type": {
+            "bsonType": "string"
+          },
+          "reference_number": {
+            "bsonType": "string"
+          },
+          "status": {
+            "bsonType": "string"
+          }
+        }
+      }
+    }
+  },
+  "relationships": [
+    {
+      "id": "3e4b34c5-7f56-421b-b752-07f427df29f7",
+      "relationship": [
+        {
+          "ns": "TicketBookingWeb.orders",
+          "fields": [
+            "customer"
+          ],
+          "cardinality": 1
+        },
+        {
+          "ns": "TicketBookingWeb.customers",
+          "fields": [
+            "_id"
+          ],
+          "cardinality": 1
+        }
+      ],
+      "isInferred": true
+    },
+    {
+      "id": "50f79652-926b-4b07-a9f3-2e780ebb628e",
+      "relationship": [
+        {
+          "ns": "TicketBookingWeb.trips",
+          "fields": [
+            "assistant"
+          ],
+          "cardinality": 1
+        },
+        {
+          "ns": "TicketBookingWeb.operator",
+          "fields": [
+            "_id"
+          ],
+          "cardinality": 1
+        }
+      ],
+      "isInferred": true
+    },
+    {
+      "id": "5ec12d79-b49c-4c48-8bae-cbd843b28cb2",
+      "relationship": [
+        {
+          "ns": "TicketBookingWeb.trips",
+          "fields": [
+            "driver"
+          ],
+          "cardinality": 1
+        },
+        {
+          "ns": "TicketBookingWeb.operator",
+          "fields": [
+            "_id"
+          ],
+          "cardinality": 1
+        }
+      ],
+      "isInferred": true
+    },
+    {
+      "id": "dad38fce-d445-4133-b8a2-205793377d81",
+      "relationship": [
+        {
+          "ns": "TicketBookingWeb.trips",
+          "fields": [
+            "route"
+          ],
+          "cardinality": 1
+        },
+        {
+          "ns": "TicketBookingWeb.routes",
+          "fields": [
+            "_id"
+          ],
+          "cardinality": 1
+        }
+      ],
+      "isInferred": true
+    },
+    {
+      "id": "e3610364-8489-4769-91d0-fd8546d9ede9",
+      "relationship": [
+        {
+          "ns": "TicketBookingWeb.orders",
+          "fields": [
+            "tickets"
+          ],
+          "cardinality": 1
+        },
+        {
+          "ns": "TicketBookingWeb.tickets",
+          "fields": [
+            "_id"
+          ],
+          "cardinality": 1
+        }
+      ],
+      "isInferred": true
+    },
+    {
+      "id": "e22785ad-75b9-4e9b-93b7-9cfb4fded5ac",
+      "relationship": [
+        {
+          "ns": "TicketBookingWeb.tickets",
+          "fields": [
+            "trip"
+          ],
+          "cardinality": 1
+        },
+        {
+          "ns": "TicketBookingWeb.trips",
+          "fields": [
+            "_id"
+          ],
+          "cardinality": 1
+        }
+      ],
+      "isInferred": true
+    },
+    {
+      "id": "add16087-14e7-4931-917b-0e104abeb918",
+      "relationship": [
+        {
+          "ns": "TicketBookingWeb.orders",
+          "fields": [
+            "trip"
+          ],
+          "cardinality": 1
+        },
+        {
+          "ns": "TicketBookingWeb.trips",
+          "fields": [
+            "_id"
+          ],
+          "cardinality": 1
+        }
+      ],
+      "isInferred": true
+    },
+    {
+      "id": "c9f8e6a9-339c-41a1-95d4-4f4f5e766081",
+      "relationship": [
+        {
+          "ns": "TicketBookingWeb.trips",
+          "fields": [
+            "vehicle"
+          ],
+          "cardinality": 1
+        },
+        {
+          "ns": "TicketBookingWeb.vehicles",
+          "fields": [
+            "_id"
+          ],
+          "cardinality": 1
+        }
+      ],
+      "isInferred": true
+    },
+    {
+      "id": "03b1fbd4-f025-4a92-b017-937cb174147f",
+      "relationship": [
+        {
+          "ns": "TicketBookingWeb.payments",
+          "fields": [
+            "customer"
+          ],
+          "cardinality": 1
+        },
+        {
+          "ns": "TicketBookingWeb.customers",
+          "fields": [
+            "_id"
+          ],
+          "cardinality": 1
+        }
+      ],
+      "isInferred": true
+    },
+    {
+      "id": "f30fed99-d2b6-474c-8503-3e232557f8c4",
+      "relationship": [
+        {
+          "ns": "TicketBookingWeb.payments",
+          "fields": [
+            "order"
+          ],
+          "cardinality": 1
+        },
+        {
+          "ns": "TicketBookingWeb.orders",
+          "fields": [
+            "_id"
+          ],
+          "cardinality": 1
+        }
+      ],
+      "isInferred": true
+    }
+  ]
+}

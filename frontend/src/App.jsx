@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import "./App.css";
 import CustomerPage from "./pages/CustomerPage.jsx";
 import CustomerBookingPage from "./pages/CustomerBookingPage.jsx";
 import DispatcherDashboardPage from "./pages/DispatcherDashboardPage.jsx";
@@ -55,13 +54,6 @@ function App() {
   const [customerName, setCustomerName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
-
-  const [dispatcherDrafts, setDispatcherDrafts] = useState({
-    routeName: "",
-    operatorName: "",
-    vehicleCode: "",
-    tripNote: "",
-  });
 
   useEffect(() => {
     if (session) {
@@ -172,12 +164,12 @@ function App() {
 
     if (!authEmail.trim() || !authPassword) {
       setError("Vui lòng nhập email và mật khẩu.");
-      return;
+      return false;
     }
 
     if (authMode === "register" && (!authName.trim() || !authPhone.trim())) {
       setError("Vui lòng nhập họ tên và số điện thoại để đăng ký.");
-      return;
+      return false;
     }
 
     setAuthLoading(true);
@@ -226,8 +218,10 @@ function App() {
           : "Đăng nhập thành công."
       );
       setAuthPassword("");
+      return true;
     } catch (requestError) {
       setError(requestError.message || "Đã có lỗi khi xác thực tài khoản.");
+      return false;
     } finally {
       setAuthLoading(false);
     }
@@ -415,21 +409,12 @@ function App() {
     }
   };
 
-  const updateDispatcherDraft = (field, value) => {
-    setDispatcherDrafts((current) => ({
-      ...current,
-      [field]: value,
-    }));
-  };
-
   if (isDispatcherRoute) {
     if (session?.role === "dispatcher") {
       return (
         <DispatcherDashboardPage
           session={session}
           handleLogout={handleLogout}
-          dispatcherDrafts={dispatcherDrafts}
-          updateDispatcherDraft={updateDispatcherDraft}
           error={error}
           successMessage={successMessage}
         />

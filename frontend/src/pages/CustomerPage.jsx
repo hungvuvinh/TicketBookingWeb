@@ -1,4 +1,7 @@
 import { useState } from "react";
+import Alert from "../components/Alert.jsx";
+import Modal from "../components/Modal.jsx";
+import Navbar from "../components/Navbar.jsx";
 
 export default function CustomerPage({
   session,
@@ -16,7 +19,6 @@ export default function CustomerPage({
   setAuthPassword,
   submitCustomerAuth,
   origin,
-  setOrigin,
   date,
   setDate,
   destination,
@@ -26,57 +28,86 @@ export default function CustomerPage({
   routePoints,
   destinationOptions,
   handleOriginChange,
-  trips,
-  selectedTrip,
-  loadSeats,
-  loadingSeats,
-  seats,
-  selectedSeats,
-  toggleSeat,
-  customerName,
-  setCustomerName,
-  phoneNumber,
-  setPhoneNumber,
-  email,
-  setEmail,
-  paymentType,
-  setPaymentType,
-  submitBooking,
-  submitting,
-  totalAmount,
   error,
   successMessage,
 }) {
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div className="topbar-inner">
-          <div className="brand">
-            <div className="brand-title">TicketBooking</div>
-            <div className="brand-sub">Đặt vé nhanh — An tâm</div>
-          </div>
-          <nav className="top-actions">
-            <button type="button" className="login-btn" onClick={() => setShowAuthModal(true)}>
-              Tài khoản
-            </button>
-            {session ? (
-              <button type="button" className="login-btn" onClick={handleLogout}>
-                Đăng xuất
-              </button>
-            ) : null}
-          </nav>
-        </div>
-      </header>
+  const handleAuthSubmit = async (event) => {
+    event.preventDefault();
+    const ok = await submitCustomerAuth(event);
+    if (ok) {
+      setShowAuthModal(false);
+    }
+  };
 
-      <section className="hero-card hero-center">
-        <div className="hero-search-wrap">
-          <form className="search-form hero-search" onSubmit={handleSearch}>
-            <label>
-              Điểm đi
-              <select value={origin} onChange={(e) => handleOriginChange(e.target.value)}>
-                <option value="">-- Chọn điểm đi --</option>
+  return (
+    <main className="min-h-screen text-blush-900">
+      <Navbar tagline="Đặt vé xe khách trực tuyến">
+        {session ? (
+          <span className="hidden rounded-full bg-blush-100 px-3 py-1.5 text-xs font-semibold text-blush-700 sm:inline">
+            Xin chào, {session.profile?.customer_name || "bạn"}
+          </span>
+        ) : null}
+        <button type="button" className="btn-secondary hidden sm:inline-flex">
+          Vé của tôi
+        </button>
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => setShowAuthModal(true)}
+        >
+          {session ? "Tài khoản" : "Đăng nhập"}
+        </button>
+        {session ? (
+          <button type="button" className="btn-ghost" onClick={handleLogout}>
+            Đăng xuất
+          </button>
+        ) : null}
+      </Navbar>
+
+      <section className="relative overflow-hidden px-4 py-16 sm:px-6 lg:px-8">
+        <div className="pointer-events-none absolute -left-20 top-10 h-64 w-64 rounded-full bg-blush-200/40 blur-3xl" />
+        <div className="pointer-events-none absolute -right-16 bottom-0 h-72 w-72 rounded-full bg-mauve-200/50 blur-3xl" />
+
+        <div className="relative mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="animate-rise-up space-y-6">
+            <p className="inline-flex rounded-full border border-blush-200 bg-white/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.28em] text-blush-500">
+              Pastel travel experience
+            </p>
+            <h1 className="font-display text-4xl font-bold leading-tight tracking-tight text-blush-900 sm:text-5xl lg:text-6xl">
+              Tìm chuyến xe
+              <span className="block bg-gradient-to-r from-blush-500 to-blush-700 bg-clip-text text-transparent">
+                nhanh & dễ dàng
+              </span>
+            </h1>
+            <p className="max-w-xl text-base leading-relaxed text-blush-700/90 sm:text-lg">
+              Giao diện hiện đại, tông màu pastel dịu mắt — chọn điểm đi, điểm đến và ngày khởi hành để bắt đầu hành trình của bạn.
+            </p>
+            <div className="flex flex-wrap gap-3 text-sm text-blush-600">
+              <span className="rounded-2xl bg-white/80 px-4 py-2 shadow-glass">✓ Chọn ghế trực tiếp</span>
+              <span className="rounded-2xl bg-white/80 px-4 py-2 shadow-glass">✓ Thanh toán online</span>
+              <span className="rounded-2xl bg-white/80 px-4 py-2 shadow-glass">✓ Xác nhận tức thì</span>
+            </div>
+          </div>
+
+          <form
+            onSubmit={handleSearch}
+            className="card-panel scale-in space-y-5 lg:ml-auto lg:max-w-md"
+          >
+            <div>
+              <h2 className="font-display text-2xl font-bold text-blush-900">Tìm chuyến</h2>
+              <p className="mt-1 text-sm text-blush-600">Nhập thông tin để xem chuyến phù hợp</p>
+            </div>
+
+            <label className="block space-y-2">
+              <span className="label-text">Điểm đi</span>
+              <select
+                value={origin}
+                onChange={(e) => handleOriginChange(e.target.value)}
+                className="input-field"
+              >
+                <option value="">Chọn điểm đi</option>
                 {routePoints.map((point) => (
                   <option key={point} value={point}>
                     {point}
@@ -84,114 +115,126 @@ export default function CustomerPage({
                 ))}
               </select>
             </label>
-            <label>
-              Điểm đến
+
+            <label className="block space-y-2">
+              <span className="label-text">Điểm đến</span>
               <select
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
-                disabled={!destinationOptions || destinationOptions.length === 0}
+                disabled={destinationOptions.length === 0}
+                className="input-field"
               >
-                <option value="">-- Chọn điểm đến --</option>
-                {destinationOptions && destinationOptions.map((pt) => (
-                  <option key={pt} value={pt}>{pt}</option>
+                <option value="">Chọn điểm đến</option>
+                {destinationOptions.map((point) => (
+                  <option key={point} value={point}>
+                    {point}
+                  </option>
                 ))}
               </select>
             </label>
-            <label>
-              Ngày
-              <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+
+            <label className="block space-y-2">
+              <span className="label-text">Ngày đi</span>
+              <input
+                type="date"
+                value={date}
+                onChange={(event) => setDate(event.target.value)}
+                className="input-field"
+              />
             </label>
-            <button type="submit" disabled={loadingTrips}>
-              {loadingTrips ? "Đang tìm..." : "Tìm"}
+
+            <button type="submit" disabled={loadingTrips} className="btn-primary h-12 w-full">
+              {loadingTrips ? "Đang tìm kiếm..." : "Tìm kiếm chuyến"}
             </button>
           </form>
-          {/* routePoints provided as select options above */}
         </div>
       </section>
 
-      {showAuthModal && (
-        <div className="modal-overlay" onClick={() => setShowAuthModal(false)}>
-          <div className="modal-dialog" onClick={(event) => event.stopPropagation()}>
-            <button className="modal-close" onClick={() => setShowAuthModal(false)} aria-label="Close">
-              ×
-            </button>
-            <div className="panel panel-soft auth-panel-modal">
-              <div className="panel-head">
-                <h2>{authMode === "login" ? "Đăng nhập khách hàng" : "Đăng ký khách hàng"}</h2>
-              </div>
-
-              <div className="auth-switcher">
-                <button
-                  type="button"
-                  className={authMode === "login" ? "switch-btn active" : "switch-btn"}
-                  onClick={() => setAuthMode("login")}
-                >
-                  Đăng nhập
-                </button>
-                <button
-                  type="button"
-                  className={authMode === "register" ? "switch-btn active" : "switch-btn"}
-                  onClick={() => setAuthMode("register")}
-                >
-                  Đăng ký
-                </button>
-              </div>
-
-              <form
-                className="auth-form"
-                onSubmit={(event) => {
-                  submitCustomerAuth(event);
-                  setShowAuthModal(false);
-                }}
-              >
-                {authMode === "register" && (
-                  <>
-                    <label>
-                      Họ tên
-                      <input
-                        value={authName}
-                        onChange={(event) => setAuthName(event.target.value)}
-                        placeholder="Nguyễn Văn A"
-                      />
-                    </label>
-                    <label>
-                      Số điện thoại
-                      <input
-                        value={authPhone}
-                        onChange={(event) => setAuthPhone(event.target.value)}
-                        placeholder="09xxxxxxxx"
-                      />
-                    </label>
-                  </>
-                )}
-
-                <label>
-                  Email
-                  <input value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="abc@email.com" />
-                </label>
-                <label>
-                  Mật khẩu
-                  <input
-                    type="password"
-                    value={authPassword}
-                    onChange={(event) => setAuthPassword(event.target.value)}
-                    placeholder="Tối thiểu 8 ký tự"
-                  />
-                </label>
-
-                <button type="submit" disabled={authLoading}>
-                  {authLoading ? "Đang xử lý..." : authMode === "register" ? "Tạo tài khoản" : "Đăng nhập"}
-                </button>
-              </form>
-            </div>
-          </div>
+      {(error || successMessage) && (
+        <div className="mx-auto max-w-2xl space-y-3 px-4 pb-6">
+          {error ? <Alert type="error">{error}</Alert> : null}
+          {successMessage ? <Alert type="success">{successMessage}</Alert> : null}
         </div>
       )}
 
-      {error && <p className="alert error">{error}</p>}
-      {successMessage && <p className="alert success">{successMessage}</p>}
-      <footer className="site-footer">
-        © {new Date().getFullYear()} TicketBooking — Dịch vụ đặt vé trực tuyến.
+      <Modal
+        open={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        title={authMode === "login" ? "Đăng nhập" : "Đăng ký"}
+        subtitle="Tài khoản khách hàng"
+        size="sm"
+      >
+        <div className="mb-5 flex gap-2 rounded-2xl bg-blush-50 p-1">
+          {["login", "register"].map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className={`flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                authMode === mode
+                  ? "bg-white text-blush-900 shadow-sm"
+                  : "text-blush-600 hover:text-blush-800"
+              }`}
+              onClick={() => setAuthMode(mode)}
+            >
+              {mode === "login" ? "Đăng nhập" : "Đăng ký"}
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={handleAuthSubmit} className="space-y-3">
+          {authMode === "register" ? (
+            <>
+              <label className="block space-y-2">
+                <span className="label-text">Họ tên</span>
+                <input
+                  value={authName}
+                  onChange={(e) => setAuthName(e.target.value)}
+                  placeholder="Nguyễn Văn A"
+                  className="input-field"
+                />
+              </label>
+              <label className="block space-y-2">
+                <span className="label-text">Số điện thoại</span>
+                <input
+                  value={authPhone}
+                  onChange={(e) => setAuthPhone(e.target.value)}
+                  placeholder="09xxxxxxxx"
+                  className="input-field"
+                />
+              </label>
+            </>
+          ) : null}
+
+          <label className="block space-y-2">
+            <span className="label-text">Email</span>
+            <input
+              type="email"
+              value={authEmail}
+              onChange={(e) => setAuthEmail(e.target.value)}
+              placeholder="abc@email.com"
+              className="input-field"
+            />
+          </label>
+
+          <label className="block space-y-2">
+            <span className="label-text">Mật khẩu</span>
+            <input
+              type="password"
+              value={authPassword}
+              onChange={(e) => setAuthPassword(e.target.value)}
+              placeholder="Tối thiểu 8 ký tự"
+              className="input-field"
+            />
+          </label>
+
+          <button type="submit" disabled={authLoading} className="btn-primary w-full">
+            {authLoading ? "Đang xử lý..." : authMode === "login" ? "Đăng nhập" : "Đăng ký"}
+          </button>
+        </form>
+      </Modal>
+
+      <footer className="mt-auto border-t border-blush-100/80 bg-white/50 px-4 py-8 text-center text-sm text-blush-500 backdrop-blur-sm">
+        © {new Date().getFullYear()} TicketBooking — Đặt vé trực tuyến nhanh chóng và an toàn.
       </footer>
     </main>
   );

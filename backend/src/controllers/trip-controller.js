@@ -50,10 +50,23 @@ const getTripSeats = async (req, res) => {
 
 const createTrip = async (req, res) => {
   try {
-    const { route_id, vehicle_id, driver_id, assistant_id, departure_time, arrival_time } = req.body || {};
+    const {
+      route_id,
+      origin,
+      destination,
+      travel_time,
+      vehicle_id,
+      driver_id,
+      assistant_id,
+      departure_time,
+      arrival_time,
+    } = req.body || {};
 
     const trip = await tripService.createTrip({
       routeId: route_id,
+      origin,
+      destination,
+      travel_time,
       vehicleId: vehicle_id,
       driverId: driver_id,
       assistantId: assistant_id,
@@ -62,6 +75,53 @@ const createTrip = async (req, res) => {
     });
 
     return res.status(201).json({ success: true, message: "Trip created successfully", data: trip });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({ success: false, message: error.message || "Internal server error" });
+  }
+};
+
+const updateTrip = async (req, res) => {
+  try {
+    const { tripId } = req.params;
+    const {
+      route_id,
+      origin,
+      destination,
+      travel_time,
+      vehicle_id,
+      driver_id,
+      assistant_id,
+      departure_time,
+      arrival_time,
+    } = req.body || {};
+
+    const trip = await tripService.updateTrip({
+      tripId,
+      routeId: route_id,
+      origin,
+      destination,
+      travel_time,
+      vehicleId: vehicle_id,
+      driverId: driver_id,
+      assistantId: assistant_id,
+      departure_time,
+      arrival_time,
+    });
+
+    return res.status(200).json({ success: true, message: "Trip updated successfully", data: trip });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    return res.status(statusCode).json({ success: false, message: error.message || "Internal server error" });
+  }
+};
+
+const deleteTrip = async (req, res) => {
+  try {
+    const { tripId } = req.params;
+    await tripService.deleteTrip(tripId);
+
+    return res.status(200).json({ success: true, message: "Trip deleted successfully" });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({ success: false, message: error.message || "Internal server error" });
@@ -82,5 +142,7 @@ module.exports = {
   searchTrips,
   getTripSeats,
   createTrip,
+  updateTrip,
+  deleteTrip,
   listTrips,
 };
