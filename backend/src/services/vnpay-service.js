@@ -31,8 +31,8 @@ class VNPayService {
             throw new Error('orderId and amount are required');
         }
 
-        // VNPay yêu cầu amount phải là số nguyên (VND, không có số thập phân)
-        const amountInt = Math.floor(amount * 100); // Convert to smallest unit
+        // VNPay yêu cầu amount phải là số nguyên (VND)
+        const amountInt = Math.floor(amount * 100); // Chuyển sang đơn vị nhỏ nhất
         const txnRef = `${orderId}-${Date.now()}`;
         const createDate = this.getCurrentFormattedDate();
 
@@ -76,10 +76,6 @@ class VNPayService {
         };
     }
 
-    /**
-     * Build canonical query string giống URLEncoder trong Java
-     * Encode mỗi key/value riêng lẻ để tránh double-encoding
-     */
     buildQueryString(params) {
         const parts = [];
         for (const [key, value] of Object.entries(params)) {
