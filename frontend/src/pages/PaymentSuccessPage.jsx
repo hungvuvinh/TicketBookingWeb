@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Alert from "../components/Alert.jsx";
 import Navbar from "../components/Navbar.jsx";
+import { API_BASE } from "../config.js";
 
 export default function PaymentSuccessPage() {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ export default function PaymentSuccessPage() {
         }
 
         const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/orders/${orderId}`,
+          `${API_BASE}/orders/${orderId}`,
           {
             method: "GET",
             headers: { "Content-Type": "application/json" },

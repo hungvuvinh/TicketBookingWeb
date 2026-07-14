@@ -211,6 +211,8 @@ class BookingService {
         payment.vnpay_transaction_id = paymentResult.transactionRef;
         await payment.save();
 
+        console.log("[VNPay] Booking payment URL ready:", paymentResult.paymentUrl);
+
         // Order vẫn pending cho đến khi thanh toán thành công
         const finalOrder = await orderRepository.findByIdPopulated(order._id);
 

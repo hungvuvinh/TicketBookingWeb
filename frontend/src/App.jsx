@@ -3,8 +3,7 @@ import CustomerPage from "./pages/CustomerPage.jsx";
 import CustomerBookingPage from "./pages/CustomerBookingPage.jsx";
 import DispatcherDashboardPage from "./pages/DispatcherDashboardPage.jsx";
 import DispatcherLoginPage from "./pages/DispatcherLoginPage.jsx";
-
-const API_BASE = "http://localhost:5000/api";
+import { API_BASE } from "./config.js";
 const SESSION_KEY = "ticketbooking-session";
 
 function formatMoney(value = 0) {

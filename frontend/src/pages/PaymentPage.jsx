@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import Alert from "../components/Alert.jsx";
 import Modal from "../components/Modal.jsx";
 import Navbar from "../components/Navbar.jsx";
+import { API_BASE } from "../config.js";
 
 export default function PaymentPage() {
   const navigate = useNavigate();
@@ -59,7 +60,7 @@ export default function PaymentPage() {
       if (method === "vnpay") {
         // Gọi API tạo VNPay payment URL
         const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/payments/vnpay/create`,
+          `${API_BASE}/payments/vnpay/create`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -88,7 +89,7 @@ export default function PaymentPage() {
       } else if (method === "cod") {
         // COD - update order status to paid
         const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/orders/${order._id}/confirm`,
+          `${API_BASE}/orders/${order._id}/confirm`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

@@ -8,9 +8,7 @@ import PaymentReturnPage from "./pages/PaymentReturnPage.jsx";
 import PaymentSuccessPage from "./pages/PaymentSuccessPage.jsx";
 import DispatcherDashboardPage from "./pages/DispatcherDashboardPage.jsx";
 import DispatcherLoginPage from "./pages/DispatcherLoginPage.jsx";
-
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+import { API_BASE } from "./config.js";
 const SESSION_KEY = "ticketbooking-session";
 
 function formatMoney(value = 0) {
@@ -40,6 +38,7 @@ export default function AppRouter() {
   const [authPassword, setAuthPassword] = useState("");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [profileUpdating, setProfileUpdating] = useState(false);
 
   const [origin, setOrigin] = useState("");
   const [date, setDate] = useState("");
@@ -208,7 +207,8 @@ export default function AppRouter() {
       setSession({
         role: "customer",
         profile: customer || null,
-        token: null,
+        token: result.data?.accessToken || null,
+        refreshToken: result.data?.refreshToken || null,
       });
       setCustomerName(customer?.customer_name || "");
       setPhoneNumber(customer?.phone_number || "");
@@ -226,6 +226,53 @@ export default function AppRouter() {
       return false;
     } finally {
       setAuthLoading(false);
+    }
+  };
+
+  const updateCustomerProfile = async (payload) => {
+    if (!session?.role || session.role !== "customer") {
+      setError("Bạn cần đăng nhập để cập nhật thông tin.");
+      return false;
+    }
+
+    setError("");
+    setSuccessMessage("");
+    setProfileUpdating(true);
+
+    try {
+      const response = await fetch(`${API_BASE}/auth/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.token ? { Authorization: `Bearer ${session.token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Cập nhật thông tin thất bại.");
+      }
+
+      const nextProfile = result.data?.customer || session.profile;
+      setSession((currentSession) => ({
+        ...(currentSession || {}),
+        role: "customer",
+        profile: nextProfile,
+        token: currentSession?.token || null,
+        refreshToken: currentSession?.refreshToken || null,
+      }));
+      setCustomerName(nextProfile?.customer_name || "");
+      setPhoneNumber(nextProfile?.phone_number || "");
+      setEmail(nextProfile?.email || "");
+      setSuccessMessage("Cập nhật thông tin cá nhân thành công.");
+      return true;
+    } catch (requestError) {
+      setError(requestError.message || "Đã có lỗi khi cập nhật thông tin.");
+      return false;
+    } finally {
+      setProfileUpdating(false);
     }
   };
 
@@ -472,6 +519,8 @@ export default function AppRouter() {
             authPassword={authPassword}
             setAuthPassword={setAuthPassword}
             submitCustomerAuth={submitCustomerAuth}
+            updateCustomerProfile={updateCustomerProfile}
+            profileUpdating={profileUpdating}
             origin={origin}
             setOrigin={setOrigin}
             date={date}
@@ -509,6 +558,8 @@ export default function AppRouter() {
             authPassword={authPassword}
             setAuthPassword={setAuthPassword}
             submitCustomerAuth={submitCustomerAuth}
+            updateCustomerProfile={updateCustomerProfile}
+            profileUpdating={profileUpdating}
             origin={origin}
             setOrigin={setOrigin}
             date={date}

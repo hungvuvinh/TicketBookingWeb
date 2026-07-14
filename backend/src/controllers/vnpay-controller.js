@@ -67,6 +67,8 @@ const createPaymentUrl = async (req, res) => {
         payment.vnpay_transaction_id = paymentResult.transactionRef;
         await payment.save();
 
+        console.log("[VNPay] Payment URL ready:", paymentResult.paymentUrl);
+
         return res.status(200).json({
             success: true,
             message: 'Payment URL created successfully',
@@ -106,8 +108,16 @@ const paymentReturn = async (req, res) => {
             });
         }
 
-        // Tìm payment bằng paymentId từ orderId
-        const payment = await Payment.findById(verifyResult.orderId);
+        const paymentId = vnpayService.extractPaymentIdFromTxnRef(verifyResult.transactionRef);
+        if (!paymentId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid transaction reference'
+            });
+        }
+
+        // Tìm payment bằng paymentId từ vnp_TxnRef
+        const payment = await Payment.findById(paymentId);
         if (!payment) {
             return res.status(404).json({
                 success: false,
@@ -135,7 +145,7 @@ const paymentReturn = async (req, res) => {
                 // Cập nhật tickets status
                 await Ticket.updateMany(
                     { _id: { $in: order.tickets } },
-                    { status: 'confirmed' }
+                    { status: 'booked' }
                 );
             }
 
@@ -147,7 +157,8 @@ const paymentReturn = async (req, res) => {
                     orderId: payment.order,
                     status: 'success',
                     amount: payment.amount,
-                    transactionNo: verifyResult.transactionNo
+                    transactionNo: verifyResult.transactionNo,
+                    transactionRef: verifyResult.transactionRef
                 }
             });
         } else {
@@ -192,8 +203,16 @@ const paymentIpn = async (req, res) => {
             });
         }
 
+        const paymentId = vnpayService.extractPaymentIdFromTxnRef(verifyResult.transactionRef);
+        if (!paymentId) {
+            return res.status(200).json({
+                RspCode: '01',
+                Message: 'Invalid transaction reference'
+            });
+        }
+
         // Tìm payment
-        const payment = await Payment.findById(verifyResult.orderId);
+        const payment = await Payment.findById(paymentId);
         if (!payment) {
             return res.status(200).json({
                 RspCode: '01',
@@ -236,7 +255,7 @@ const paymentIpn = async (req, res) => {
                 // Cập nhật tickets
                 await Ticket.updateMany(
                     { _id: { $in: order.tickets } },
-                    { status: 'confirmed' }
+                    { status: 'booked' }
                 );
             }
 

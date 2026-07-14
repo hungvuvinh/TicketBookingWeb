@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Alert from "../components/Alert.jsx";
 import Modal from "../components/Modal.jsx";
@@ -20,6 +20,8 @@ export default function CustomerPage({
   authPassword,
   setAuthPassword,
   submitCustomerAuth,
+  updateCustomerProfile,
+  profileUpdating,
   origin,
   date,
   setDate,
@@ -37,12 +39,50 @@ export default function CustomerPage({
 }) {
   const navigate = useNavigate();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    customer_name: session?.profile?.customer_name || "",
+    phone_number: session?.profile?.phone_number || "",
+    email: session?.profile?.email || "",
+  });
+
+  useEffect(() => {
+    if (session?.role === "customer") {
+      setProfileForm({
+        customer_name: session.profile?.customer_name || "",
+        phone_number: session.profile?.phone_number || "",
+        email: session.profile?.email || "",
+      });
+    }
+  }, [session]);
 
   const handleAuthSubmit = async (event) => {
     event.preventDefault();
     const ok = await submitCustomerAuth(event);
     if (ok) {
       setShowAuthModal(false);
+    }
+  };
+
+  const handleOpenAccountModal = () => {
+    if (session) {
+      setProfileForm({
+        customer_name: session.profile?.customer_name || "",
+        phone_number: session.profile?.phone_number || "",
+        email: session.profile?.email || "",
+      });
+      setShowProfileModal(true);
+      return;
+    }
+
+    setShowAuthModal(true);
+  };
+
+  const handleProfileSubmit = async (event) => {
+    event.preventDefault();
+    const ok = await updateCustomerProfile(profileForm);
+    if (ok) {
+      setShowProfileModal(false);
     }
   };
 
@@ -60,7 +100,7 @@ export default function CustomerPage({
         <button
           type="button"
           className="btn-primary"
-          onClick={() => setShowAuthModal(true)}
+          onClick={handleOpenAccountModal}
         >
           {session ? "Tài khoản" : "Đăng nhập"}
         </button>
@@ -84,7 +124,7 @@ export default function CustomerPage({
               </span>
             </h1>
             <p className="max-w-xl text-base leading-relaxed text-blush-700/90 sm:text-lg">
-              Good job bro.
+              Đặt vé chưa bao giờ dễ dàng đến thế!
             </p>
             <div className="flex flex-wrap gap-3 text-sm text-blush-600">
               <span className="rounded-2xl bg-white/80 px-4 py-2 shadow-glass">✓ Tìm tuyến nhanh</span>
@@ -166,6 +206,56 @@ export default function CustomerPage({
           ) : null}
         </div>
       )}
+
+      <Modal
+        open={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        title="Thông tin tài khoản"
+        subtitle="Khách hàng"
+        size="sm"
+      >
+        <form onSubmit={handleProfileSubmit} className="space-y-3">
+          <label className="block space-y-2">
+            <span className="label-text">Họ tên</span>
+            <input
+              value={profileForm.customer_name}
+              onChange={(e) => setProfileForm((current) => ({ ...current, customer_name: e.target.value }))}
+              placeholder="Nguyễn Văn A"
+              className="input-field"
+            />
+          </label>
+
+          <label className="block space-y-2">
+            <span className="label-text">Số điện thoại</span>
+            <input
+              value={profileForm.phone_number}
+              onChange={(e) => setProfileForm((current) => ({ ...current, phone_number: e.target.value }))}
+              placeholder="09xxxxxxxx"
+              className="input-field"
+            />
+          </label>
+
+          <label className="block space-y-2">
+            <span className="label-text">Email</span>
+            <input
+              type="email"
+              value={profileForm.email}
+              onChange={(e) => setProfileForm((current) => ({ ...current, email: e.target.value }))}
+              placeholder="abc@email.com"
+              className="input-field"
+            />
+          </label>
+
+          <div className="flex gap-2 pt-2">
+            <button type="submit" disabled={profileUpdating} className="btn-primary flex-1">
+              {profileUpdating ? "Đang lưu..." : "Lưu thay đổi"}
+            </button>
+            <button type="button" className="btn-ghost flex-1" onClick={() => setShowProfileModal(false)}>
+              Hủy
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal
         open={showAuthModal}

@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
 import Alert from "../components/Alert.jsx";
-
-
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+import { API_BASE } from "../config.js";
 
 function formatMoney(value = 0) {
   return new Intl.NumberFormat("vi-VN", {

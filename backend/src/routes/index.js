@@ -1,7 +1,7 @@
 const express = require("express");
 const { searchTrips, getTripSeats, createTrip, updateTrip, deleteTrip, listTrips } = require("../controllers/trip-controller");
 const { createBooking } = require("../controllers/booking-controller");
-const { register, login, refreshToken } = require("../controllers/auth-controller");
+const { register, login, refreshToken, updateProfile } = require("../controllers/auth-controller");
 const { register: dispatcherRegister, login: dispatcherLogin, refreshToken: dispatcherRefreshToken } = require('../controllers/dispatcher-auth-controller');
 const { getPointSuggestions, getDestinationsForOrigin, listRoutes, createRoute, updateRoute, deleteRoute } = require("../controllers/route-controller");
 const { listVehicles, createVehicle, updateVehicle, deleteVehicle } = require('../controllers/vehicle-controller');
@@ -43,6 +43,7 @@ router.post("/bookings", createBooking);
 router.post("/auth/register", register);
 router.post("/auth/login", login);
 router.post("/auth/refresh", refreshToken);
+router.put("/auth/profile", authMiddleware, requireRole('user'), updateProfile);
 
 // dispatcher auth
 router.post('/dispatcher/register', dispatcherRegister);

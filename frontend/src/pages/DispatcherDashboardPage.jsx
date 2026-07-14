@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import Alert from "../components/Alert.jsx";
 import Modal from "../components/Modal.jsx";
 import Navbar from "../components/Navbar.jsx";
-
-const API_BASE = "http://localhost:5000/api";
+import { API_BASE } from "../config.js";
 
 const SECTIONS = [
   { key: "trips", label: "Quản lý chuyến" },

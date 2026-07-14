@@ -15,6 +15,51 @@ const mapCustomerPublicProfile = (customer) => ({
   email_verified: customer.email_verified,
 });
 
+const normalizeCustomerProfileUpdate = (payload = {}) => {
+  const updateData = {};
+  const hasCustomerName = Object.prototype.hasOwnProperty.call(payload, 'customer_name');
+  const hasPhoneNumber = Object.prototype.hasOwnProperty.call(payload, 'phone_number');
+  const hasEmail = Object.prototype.hasOwnProperty.call(payload, 'email');
+
+  if (!hasCustomerName && !hasPhoneNumber && !hasEmail) {
+    const error = new Error('At least one profile field is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (hasCustomerName) {
+    const customerName = typeof payload.customer_name === 'string' ? payload.customer_name.trim() : '';
+    if (!customerName) {
+      const error = new Error('Customer name is required');
+      error.statusCode = 400;
+      throw error;
+    }
+    updateData.customer_name = customerName;
+  }
+
+  if (hasPhoneNumber) {
+    const phoneNumber = typeof payload.phone_number === 'string' ? payload.phone_number.trim() : '';
+    if (!phoneNumber || !/^[0-9]{10}$/.test(phoneNumber)) {
+      const error = new Error('Phone number must be 10 digits');
+      error.statusCode = 400;
+      throw error;
+    }
+    updateData.phone_number = phoneNumber;
+  }
+
+  if (hasEmail) {
+    const email = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : '';
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+      const error = new Error('Email format is invalid');
+      error.statusCode = 400;
+      throw error;
+    }
+    updateData.email = email;
+  }
+
+  return updateData;
+};
+
 class AuthService {
   async register(payload) {
     const customerName = typeof payload.customer_name === 'string' ? payload.customer_name.trim() : '';
@@ -129,6 +174,41 @@ class AuthService {
     };
   }
 
+  async updateCustomerProfile(userId, payload) {
+    const updateData = normalizeCustomerProfileUpdate(payload);
+
+    if (Object.keys(updateData).length === 0) {
+      const error = new Error('No profile data to update');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const customer = await customerRepository.findById(userId);
+    if (!customer) {
+      const error = new Error('Customer not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (updateData.email && updateData.email !== customer.email) {
+      const existingAccount = await authAccountRepository.findByEmail(updateData.email);
+      if (existingAccount && existingAccount.account_ref?.toString() !== userId.toString()) {
+        const error = new Error('Email is already registered');
+        error.statusCode = 409;
+        throw error;
+      }
+    }
+
+    const updatedCustomer = await customerRepository.update(userId, updateData);
+
+    const authAccount = await authAccountRepository.findByAccountRef(userId);
+    if (authAccount && updateData.email && authAccount.email !== updateData.email) {
+      await authAccountRepository.update(authAccount._id, { email: updateData.email });
+    }
+
+    return mapCustomerPublicProfile(updatedCustomer);
+  }
+
   async refreshToken(refreshToken) {
     if (!refreshToken) {
       const error = new Error('Refresh token is required');
@@ -172,3 +252,4 @@ class AuthService {
 }
 
 module.exports = new AuthService();
+module.exports.normalizeCustomerProfileUpdate = normalizeCustomerProfileUpdate;

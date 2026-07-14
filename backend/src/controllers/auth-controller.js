@@ -94,8 +94,33 @@ const refreshToken = async (req, res) => {
   }
 };
 
+const updateProfile = async (req, res) => {
+  try {
+    const result = await authService.updateCustomerProfile(req.auth?.sub, req.body || {});
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data: { customer: result },
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
   refreshToken,
+  updateProfile,
 };

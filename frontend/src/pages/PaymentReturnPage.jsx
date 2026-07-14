@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Alert from "../components/Alert.jsx";
 import Navbar from "../components/Navbar.jsx";
+import { API_BASE } from "../config.js";
 
 export default function PaymentReturnPage() {
   const navigate = useNavigate();
@@ -46,8 +47,9 @@ export default function PaymentReturnPage() {
 
           // Gọi API backend để cập nhật trạng thái order
           try {
+            const queryString = searchParams.toString();
             const response = await fetch(
-              `${import.meta.env.VITE_API_URL}/payments/vnpay/return`,
+              `${API_BASE}/payments/vnpay/return${queryString ? `?${queryString}` : ""}`,
               {
                 method: "GET",
                 headers: { "Content-Type": "application/json" },

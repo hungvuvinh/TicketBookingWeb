@@ -1,14 +1,25 @@
 const crypto = require('crypto');
 const axios = require('axios');
 
+const readEnv = (...names) => {
+    for (const name of names) {
+        const value = process.env[name];
+        if (value && String(value).trim()) {
+            return String(value).trim();
+        }
+    }
+
+    return undefined;
+};
+
 class VNPayService {
     constructor() {
-        this.vnp_TmnCode = process.env.VNP_TMNCODE;
-        this.vnp_HashSecret = process.env.VNP_HASHSECRET;
-        this.vnp_Url = process.env.VNP_URL || 'https://sandbox.vnpayment.vn/paygate/api/transaction';
-        this.vnp_ReturnUrl = process.env.VNP_RETURNURL;
-        this.vnp_IpnUrl = process.env.VNP_IPNURL;
-        this.vnp_ApiUrl = process.env.VNP_APIURL || 'https://sandbox.vnpayment.vn/merchant_webapi/api/transaction';
+        this.vnp_TmnCode = readEnv('VNP_TMNCODE');
+        this.vnp_HashSecret = readEnv('VNP_HASHSECRET');
+        this.vnp_Url = readEnv('VNP_URL') || 'https://sandbox.vnpayment.vn/paygate/api/transaction';
+        this.vnp_ReturnUrl = readEnv('VNP_RETURN_URL', 'VNP_RETURNURL');
+        this.vnp_IpnUrl = readEnv('VNP_IPN_URL', 'VNP_IPNURL');
+        this.vnp_ApiUrl = readEnv('VNP_APIURL') || 'https://sandbox.vnpayment.vn/merchant_webapi/api/transaction';
     }
 
     /**
