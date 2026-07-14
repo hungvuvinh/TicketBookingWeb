@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Alert from "../components/Alert.jsx";
 import Modal from "../components/Modal.jsx";
 import Navbar from "../components/Navbar.jsx";
+
 
 export default function CustomerPage({
   session,
@@ -30,7 +32,10 @@ export default function CustomerPage({
   handleOriginChange,
   error,
   successMessage,
+  setError,
+  setSuccessMessage,
 }) {
+  const navigate = useNavigate();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   const handleAuthSubmit = async (event) => {
@@ -49,7 +54,7 @@ export default function CustomerPage({
             Xin chào, {session.profile?.customer_name || "bạn"}
           </span>
         ) : null}
-        <button type="button" className="btn-secondary hidden sm:inline-flex">
+        <button type="button" className="btn-secondary hidden sm:inline-flex" onClick={() => navigate("/tickets")}>
           Vé của tôi
         </button>
         <button
@@ -72,9 +77,6 @@ export default function CustomerPage({
 
         <div className="relative mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="animate-rise-up space-y-6">
-            <p className="inline-flex rounded-full border border-blush-200 bg-white/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.28em] text-blush-500">
-              Pastel travel experience
-            </p>
             <h1 className="font-display text-4xl font-bold leading-tight tracking-tight text-blush-900 sm:text-5xl lg:text-6xl">
               Tìm chuyến xe
               <span className="block bg-gradient-to-r from-blush-500 to-blush-700 bg-clip-text text-transparent">
@@ -82,12 +84,12 @@ export default function CustomerPage({
               </span>
             </h1>
             <p className="max-w-xl text-base leading-relaxed text-blush-700/90 sm:text-lg">
-              Giao diện hiện đại, tông màu pastel dịu mắt — chọn điểm đi, điểm đến và ngày khởi hành để bắt đầu hành trình của bạn.
+              Good job bro.
             </p>
             <div className="flex flex-wrap gap-3 text-sm text-blush-600">
+              <span className="rounded-2xl bg-white/80 px-4 py-2 shadow-glass">✓ Tìm tuyến nhanh</span>
               <span className="rounded-2xl bg-white/80 px-4 py-2 shadow-glass">✓ Chọn ghế trực tiếp</span>
-              <span className="rounded-2xl bg-white/80 px-4 py-2 shadow-glass">✓ Thanh toán online</span>
-              <span className="rounded-2xl bg-white/80 px-4 py-2 shadow-glass">✓ Xác nhận tức thì</span>
+              <span className="rounded-2xl bg-white/80 px-4 py-2 shadow-glass">✓ Thanh toán tức thì</span>
             </div>
           </div>
 
@@ -152,8 +154,16 @@ export default function CustomerPage({
 
       {(error || successMessage) && (
         <div className="mx-auto max-w-2xl space-y-3 px-4 pb-6">
-          {error ? <Alert type="error">{error}</Alert> : null}
-          {successMessage ? <Alert type="success">{successMessage}</Alert> : null}
+          {error ? (
+            <Alert type="error" open={Boolean(error)} onClose={() => setError("")}>
+              {error}
+            </Alert>
+          ) : null}
+          {successMessage ? (
+            <Alert type="success" open={Boolean(successMessage)} onClose={() => setSuccessMessage("")}>
+              {successMessage}
+            </Alert>
+          ) : null}
         </div>
       )}
 

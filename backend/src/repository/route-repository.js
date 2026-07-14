@@ -19,21 +19,49 @@ class RouteRepository {
   }
 
   async findByOriginDestination(origin, destination) {
+    const trimmedOrigin = String(origin || "").trim();
+    const trimmedDestination = String(destination || "").trim();
+    if (!trimmedOrigin || !trimmedDestination) {
+      return [];
+    }
+
     return Route.find({
-      origin: { $regex: new RegExp(`^${origin}$`, "i") },
-      destination: { $regex: new RegExp(`^${destination}$`, "i") },
+      $or: [
+        {
+          origin: { $regex: new RegExp(`^${trimmedOrigin}$`, "i") },
+          destination: { $regex: new RegExp(`^${trimmedDestination}$`, "i") },
+        },
+        {
+          origin: { $regex: new RegExp(`^${trimmedDestination}$`, "i") },
+          destination: { $regex: new RegExp(`^${trimmedOrigin}$`, "i") },
+        },
+      ],
     }).select("_id");
   }
 
   async findByOrigin(origin) {
     return Route.find({
-      origin: { $regex: new RegExp(`^${origin}$`, "i") },
+      $or: [
+        {
+          origin: { $regex: new RegExp(`^${origin}$`, "i") },
+        },
+        {
+          destination: { $regex: new RegExp(`^${origin}$`, "i") },
+        },
+      ],
     });
   }
 
   async findByDestination(destination) {
     return Route.find({
-      destination: { $regex: new RegExp(`^${destination}$`, "i") },
+      $or: [
+        {
+          destination: { $regex: new RegExp(`^${destination}$`, "i") },
+        },
+        {
+          origin: { $regex: new RegExp(`^${destination}$`, "i") },
+        },
+      ],
     });
   }
 
@@ -62,11 +90,24 @@ class RouteRepository {
   }
 
   async findDestinationsByOrigin(origin) {
-    if (!origin || !String(origin).trim()) return [];
+    const trimmedOrigin = String(origin || "").trim();
+    if (!trimmedOrigin) return [];
 
-    return Route.distinct("destination", {
-      origin: { $regex: new RegExp(`^${String(origin).trim()}$`, "i") },
-    }).then((arr) => (Array.isArray(arr) ? arr.map((v) => String(v || "").trim()).filter(Boolean).sort((a, b) => a.localeCompare(b, "vi")) : []));
+    const exactMatch = new RegExp(`^${trimmedOrigin}$`, "i");
+
+    const [directDestinations, reverseOrigins] = await Promise.all([
+      Route.distinct("destination", { origin: { $regex: exactMatch } }),
+      Route.distinct("origin", { destination: { $regex: exactMatch } }),
+    ]);
+
+    const values = [
+      ...(Array.isArray(directDestinations) ? directDestinations : []),
+      ...(Array.isArray(reverseOrigins) ? reverseOrigins : []),
+    ]
+      .map((value) => String(value || "").trim())
+      .filter(Boolean);
+
+    return Array.from(new Set(values)).sort((left, right) => left.localeCompare(right, "vi"));
   }
 
   async update(id, updateData) {

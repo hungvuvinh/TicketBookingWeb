@@ -9,7 +9,13 @@ class OrderRepository {
   async findById(id) {
     return Order.findById(id)
       .populate("customer")
-      .populate("trip")
+      .populate({
+        path: "trip",
+        populate: [
+          { path: "route" },
+          { path: "vehicle" },
+        ],
+      })
       .populate("tickets");
   }
 
@@ -17,7 +23,13 @@ class OrderRepository {
     const { skip = 0, limit = 10, sort = { createdAt: -1 } } = options;
     return Order.find(filter)
       .populate("customer")
-      .populate("trip")
+      .populate({
+        path: "trip",
+        populate: [
+          { path: "route" },
+          { path: "vehicle" },
+        ],
+      })
       .populate("tickets")
       .skip(skip)
       .limit(limit)
@@ -28,7 +40,13 @@ class OrderRepository {
     const { skip = 0, limit = 10, sort = { createdAt: -1 } } = options;
     return Order.find({ customer: customerId })
       .populate("customer")
-      .populate("trip")
+      .populate({
+        path: "trip",
+        populate: [
+          { path: "route" },
+          { path: "vehicle" },
+        ],
+      })
       .populate("tickets")
       .skip(skip)
       .limit(limit)
@@ -38,7 +56,13 @@ class OrderRepository {
   async findByTrip(tripId) {
     return Order.find({ trip: tripId })
       .populate("customer")
-      .populate("trip")
+      .populate({
+        path: "trip",
+        populate: [
+          { path: "route" },
+          { path: "vehicle" },
+        ],
+      })
       .populate("tickets");
   }
 
@@ -46,7 +70,13 @@ class OrderRepository {
     const { skip = 0, limit = 10, sort = { createdAt: -1 } } = options;
     return Order.find({ status })
       .populate("customer")
-      .populate("trip")
+      .populate({
+        path: "trip",
+        populate: [
+          { path: "route" },
+          { path: "vehicle" },
+        ],
+      })
       .populate("tickets")
       .skip(skip)
       .limit(limit)
@@ -56,7 +86,13 @@ class OrderRepository {
   async findByIdPopulated(orderId) {
     return Order.findById(orderId)
       .populate("customer")
-      .populate("trip")
+      .populate({
+        path: "trip",
+        populate: [
+          { path: "route" },
+          { path: "vehicle" },
+        ],
+      })
       .populate("tickets");
   }
 
@@ -66,7 +102,13 @@ class OrderRepository {
       runValidators: true,
     })
       .populate("customer")
-      .populate("trip")
+      .populate({
+        path: "trip",
+        populate: [
+          { path: "route" },
+          { path: "vehicle" },
+        ],
+      })
       .populate("tickets");
   }
 

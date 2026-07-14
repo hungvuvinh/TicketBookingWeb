@@ -28,6 +28,14 @@ const authAccountSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  refresh_token: {
+    type: String,
+    select: false,
+  },
+  refresh_token_expires_at: {
+    type: Date,
+    select: false,
+  },
 }, { timestamps: true, collection: 'auth_accounts' });
 
 const AuthAccount = mongoose.model('AuthAccount', authAccountSchema);

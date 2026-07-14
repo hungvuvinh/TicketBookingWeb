@@ -62,6 +62,37 @@ const resolveRoute = async ({ routeId, origin, destination, travel_time }) => {
   return routeRepository.create({ origin: origin.trim(), destination: destination.trim(), travel_time: tt });
 };
 
+const ensureVehicleAssignmentAllowed = async ({ vehicle, route, departureTime, arrivalTime, tripId = null }) => {
+  if (!vehicle) return;
+
+  const vehicleRouteId = vehicle.route?._id || vehicle.route;
+  if (vehicleRouteId && route && vehicleRouteId.toString() !== route._id.toString()) {
+    const err = new Error("Vehicle route does not match selected trip route");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const existingTrips = await tripRepository.findByVehicle(vehicle._id);
+  const conflictingTrips = existingTrips.filter((existingTrip) => {
+    if (tripId && existingTrip._id.toString() === tripId.toString()) {
+      return false;
+    }
+
+    const existingDeparture = new Date(existingTrip.departure_time).getTime();
+    const existingArrival = new Date(existingTrip.arrival_time).getTime();
+    const newDeparture = new Date(departureTime).getTime();
+    const newArrival = new Date(arrivalTime).getTime();
+
+    return existingDeparture < newArrival && newDeparture < existingArrival;
+  });
+
+  if (conflictingTrips.length > 0) {
+    const err = new Error("Vehicle is already assigned to another trip at that time");
+    err.statusCode = 400;
+    throw err;
+  }
+};
+
 const syncTripTickets = async (tripId, totalSeats) => {
   const tickets = await ticketRepository.findByTrip(tripId);
   const existingSeatNumbers = new Set(tickets.map((ticket) => Number(ticket.seat_number)));
@@ -95,7 +126,7 @@ const syncTripTickets = async (tripId, totalSeats) => {
 };
 
 class TripService {
-  async searchTrips(origin, destination) {
+  async searchTrips(origin, destination, date = null) {
     if (!origin || !destination) {
       throw new Error("Origin and destination are required");
     }
@@ -106,7 +137,35 @@ class TripService {
       return [];
     }
 
-    return tripRepository.findByRouteIds(routeIds.map((route) => route._id));
+    const trips = await tripRepository.findByRouteIds(routeIds.map((route) => route._id));
+
+    const queryOrigin = String(origin).trim().toLowerCase();
+    const queryDestination = String(destination).trim().toLowerCase();
+
+    const filtered = trips.filter((trip) => {
+      const tripOrigin = String(trip.origin || "").trim().toLowerCase();
+      const tripDestination = String(trip.destination || "").trim().toLowerCase();
+      return tripOrigin === queryOrigin && tripDestination === queryDestination;
+    });
+
+    if (!date) {
+      return filtered;
+    }
+
+    const searchDate = new Date(date);
+    if (isNaN(searchDate.getTime())) {
+      return filtered;
+    }
+
+    const startOfDay = new Date(searchDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(searchDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    return filtered.filter((trip) => {
+      const tripDeparture = new Date(trip.departure_time);
+      return tripDeparture >= startOfDay && tripDeparture <= endOfDay;
+    });
   }
 
   async getTripSeatsMap(tripId) {
@@ -148,7 +207,7 @@ class TripService {
     };
   }
 
-  async createTrip({ routeId, origin, destination, travel_time, vehicleId, driverId, assistantId, departure_time, arrival_time }) {
+  async createTrip({ routeId, origin, destination, travel_time, vehicleId, driverId, assistantId, departure_time, arrival_time, direction }) {
     if ((!routeId && (!origin || !destination)) || !vehicleId || !driverId || !assistantId || !departure_time) {
       const err = new Error("Missing required fields to create trip");
       err.statusCode = 400;
@@ -156,6 +215,11 @@ class TripService {
     }
 
     const route = await resolveRoute({ routeId, origin, destination, travel_time });
+    const effectiveTravelTime = Number(travel_time) || Number(route.travel_time) || 60;
+    const { dep, arr } = buildArrivalTime(departure_time, effectiveTravelTime, arrival_time);
+
+    const tripOrigin = direction === "reverse" ? route.destination : route.origin;
+    const tripDestination = direction === "reverse" ? route.origin : route.destination;
 
     const [vehicle, driver, assistant] = await Promise.all([
       vehicleRepository.findById(vehicleId),
@@ -181,11 +245,19 @@ class TripService {
       throw err;
     }
 
-    const { dep, arr } = buildArrivalTime(departure_time, travel_time, arrival_time);
+    await ensureVehicleAssignmentAllowed({
+      vehicle,
+      route,
+      departureTime: dep,
+      arrivalTime: arr,
+      tripId: null,
+    });
 
     // create trip
     const trip = await tripRepository.create({
       route: route._id,
+      origin: tripOrigin,
+      destination: tripDestination,
       vehicle: vehicle._id,
       driver: driver._id,
       assistant: assistant._id,
@@ -218,7 +290,7 @@ class TripService {
     return tripRepository.findById(trip._id);
   }
 
-  async updateTrip({ tripId, routeId, origin, destination, travel_time, vehicleId, driverId, assistantId, departure_time, arrival_time }) {
+  async updateTrip({ tripId, routeId, origin, destination, travel_time, vehicleId, driverId, assistantId, departure_time, arrival_time, direction }) {
     if (!tripId) {
       const err = new Error("Trip id is required");
       err.statusCode = 400;
@@ -239,6 +311,12 @@ class TripService {
     }
 
     const route = await resolveRoute({ routeId, origin, destination, travel_time });
+    const effectiveTravelTime = Number(travel_time) || Number(route.travel_time) || 60;
+    const { dep, arr } = buildArrivalTime(departure_time, effectiveTravelTime, arrival_time);
+
+    const tripOrigin = direction === "reverse" ? route.destination : route.origin;
+    const tripDestination = direction === "reverse" ? route.origin : route.destination;
+
     const [vehicle, driver, assistant] = await Promise.all([
       vehicleRepository.findById(vehicleId),
       operatorRepository.findById(driverId),
@@ -257,10 +335,18 @@ class TripService {
       throw err;
     }
 
-    const { dep, arr } = buildArrivalTime(departure_time, travel_time, arrival_time);
+    await ensureVehicleAssignmentAllowed({
+      vehicle,
+      route,
+      departureTime: dep,
+      arrivalTime: arr,
+      tripId,
+    });
 
     const updatedTrip = await tripRepository.update(tripId, {
       route: route._id,
+      origin: tripOrigin,
+      destination: tripDestination,
       vehicle: vehicle._id,
       driver: driver._id,
       assistant: assistant._id,

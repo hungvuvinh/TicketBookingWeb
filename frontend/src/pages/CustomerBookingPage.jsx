@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Alert from "../components/Alert.jsx";
 import Modal from "../components/Modal.jsx";
 import Navbar from "../components/Navbar.jsx";
@@ -29,10 +30,15 @@ export default function CustomerBookingPage({
   totalAmount,
   error,
   successMessage,
+  setError,
+  setSuccessMessage,
   formatMoney,
 }) {
+  const navigate = useNavigate();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
   const [localError, setLocalError] = useState("");
+  const isCustomer = session?.role === "customer";
 
   const handleTripCheckout = (event) => {
     event.preventDefault();
@@ -53,14 +59,46 @@ export default function CustomerBookingPage({
       return;
     }
 
+    setSelectedPaymentMethod(null);
     setShowPaymentModal(true);
   };
 
-  const confirmPayment = async () => {
-    const ok = await submitBooking();
-    if (ok) {
-      setShowPaymentModal(false);
+  const handleSelectTrip = (trip) => {
+    if (!isCustomer) {
+      setLocalError("Vui lòng đăng nhập để chọn chuyến và ghế.");
+      return;
     }
+    loadSeats(trip);
+  };
+
+  const confirmPayment = async (paymentMethod) => {
+    setLocalError("");
+    const result = await submitBooking(paymentMethod);
+    
+    if (!result) {
+      return;
+    }
+
+    if (paymentMethod === "vnpay") {
+      // Redirect đến PaymentPage
+      navigate("/payment", {
+        state: {
+          order: result.order,
+          payment: result.payment,
+        },
+      });
+    } else if (paymentMethod === "cod") {
+      // Redirect đến PaymentSuccessPage
+      navigate("/payment-success", {
+        state: {
+          orderId: result.order._id,
+          method: "cod",
+          message: "Đặt vé thành công! Vui lòng thanh toán tại quầy.",
+        },
+      });
+    }
+
+    setShowPaymentModal(false);
   };
 
   const displayError = localError || error;
@@ -72,9 +110,14 @@ export default function CustomerBookingPage({
           Tìm tuyến khác
         </button>
         {session ? (
-          <button type="button" className="btn-ghost" onClick={handleLogout}>
-            Đăng xuất
-          </button>
+          <>
+            <button type="button" className="btn-secondary hidden sm:inline-flex" onClick={() => navigate("/tickets")}>
+              Xem vé của tôi
+            </button>
+            <button type="button" className="btn-ghost" onClick={handleLogout}>
+              Đăng xuất
+            </button>
+          </>
         ) : null}
       </Navbar>
 
@@ -100,7 +143,7 @@ export default function CustomerBookingPage({
               <div className="space-y-3">
                 {searched && trips.length === 0 && (
                   <p className="rounded-2xl border border-blush-100 bg-blush-50/80 px-4 py-3 text-sm text-blush-700">
-                    Chưa có chuyến nào phù hợp với tuyến này.
+                    Chưa có chuyến nào.
                   </p>
                 )}
 
@@ -115,17 +158,18 @@ export default function CustomerBookingPage({
                           ? "border-blush-400 bg-gradient-to-r from-blush-50 to-white shadow-md"
                           : "border-blush-100 bg-white hover:border-blush-300 hover:bg-blush-50/50"
                       }`}
-                      onClick={() => loadSeats(trip)}
+                      onClick={() => handleSelectTrip(trip)}
                       style={{
                         animation: `slide-in-up 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) ${index * 0.05}s both`,
                       }}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <p className="text-lg font-semibold text-blush-900">
-                          {trip.route?.route_name || `${trip.origin} → ${trip.destination}`}
-                        </p>
                         <span className="rounded-full bg-blush-100 px-3 py-1 text-xs font-semibold text-blush-600">
-                          {trip.vehicle?.vehicle_name || trip.vehicle?.license_plate || "Xe"}
+                            {trip.vehicle?.vehicle_type || "Xe"} • {trip.vehicle?.license_plate || "Chưa có biển số"} • {trip.vehicle?.total_seats || 0} ghế
+
+                        </span>
+                        <span className="rounded-full bg-blush-100 px-3 py-1 text-xs font-semibold text-blush-600">
+                          {formatMoney(trip.vehicle?.seat_price || 0)}
                         </span>
                       </div>
                       <p className="mt-2 text-sm text-blush-600">
@@ -170,7 +214,7 @@ export default function CustomerBookingPage({
                         <button
                           key={seat.seat_number}
                           type="button"
-                          disabled={disabled}
+                          disabled={disabled || !isCustomer}
                           className={`flex h-11 items-center justify-center rounded-xl text-xs font-semibold transition ${
                             disabled
                               ? "cursor-not-allowed bg-blush-100 text-blush-300"
@@ -228,7 +272,7 @@ export default function CustomerBookingPage({
 
                 <div className="rounded-2xl bg-gradient-to-br from-blush-50 to-mauve-50 p-4 text-sm text-blush-700">
                   <p className="font-semibold text-blush-800">Hình thức thanh toán</p>
-                  <p className="mt-1">Thanh toán trực tuyến (cổng thanh toán)</p>
+                  <p className="mt-1">Bạn sẽ chọn phương thức thanh toán ở bước tiếp theo</p>
                 </div>
 
                 <div className="space-y-2 rounded-2xl border border-blush-100 bg-blush-50/60 p-4 text-sm">
@@ -254,8 +298,23 @@ export default function CustomerBookingPage({
 
         {(displayError || successMessage) && (
           <div className="space-y-3">
-            {displayError ? <Alert type="error">{displayError}</Alert> : null}
-            {successMessage ? <Alert type="success">{successMessage}</Alert> : null}
+            {displayError ? (
+              <Alert
+                type="error"
+                open={Boolean(displayError)}
+                onClose={() => {
+                  setLocalError("");
+                  setError("");
+                }}
+              >
+                {displayError}
+              </Alert>
+            ) : null}
+            {successMessage ? (
+              <Alert type="success" open={Boolean(successMessage)} onClose={() => setSuccessMessage("")}>
+                {successMessage}
+              </Alert>
+            ) : null}
           </div>
         )}
 
@@ -267,13 +326,13 @@ export default function CustomerBookingPage({
       <Modal
         open={showPaymentModal}
         onClose={() => !submitting && setShowPaymentModal(false)}
-        title="Hoàn tất đơn đặt vé"
-        subtitle="Xác nhận thanh toán"
+        title="Chọn phương thức thanh toán"
+        subtitle="Hoàn tất đơn đặt vé"
       >
-        <div className="space-y-3 rounded-2xl border border-blush-100 bg-blush-50/70 p-5 text-sm text-blush-800">
+        <div className="space-y-3 rounded-2xl border border-blush-100 bg-blush-50/70 p-5 text-sm text-blush-800 mb-6">
           <p>
             <strong>Chuyến:</strong>{" "}
-            {selectedTrip?.route?.route_name || `${selectedTrip?.origin} → ${selectedTrip?.destination}`}
+            {origin && destination ? `${origin} → ${destination}` : `${selectedTrip?.origin} → ${selectedTrip?.destination}`}
           </p>
           <p>
             <strong>Ghế:</strong> {selectedSeats.join(", ")}
@@ -281,21 +340,74 @@ export default function CustomerBookingPage({
           <p>
             <strong>Tổng:</strong> {formatMoney(totalAmount)}
           </p>
-          <p>
-            <strong>Hình thức:</strong> Thanh toán trực tuyến
-          </p>
         </div>
 
-        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <div className="space-y-3 mb-6">
+          {/* VNPay Option */}
+          <button
+            type="button"
+            onClick={() => setSelectedPaymentMethod("vnpay")}
+            disabled={submitting}
+            className={`w-full rounded-2xl border-2 px-4 py-3 text-left transition-smooth-fast ${
+              selectedPaymentMethod === "vnpay"
+                ? "border-blush-400 bg-blush-50"
+                : "border-blush-200 bg-white hover:border-blush-300"
+            } ${submitting ? "opacity-50 cursor-not-allowed" : ""}`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-blush-900">VNPay</p>
+                <p className="text-xs text-blush-600">Thanh toán qua VNPay - Nhanh chóng & bảo mật</p>
+              </div>
+              <div className={`h-5 w-5 rounded-full border-2 ${
+                selectedPaymentMethod === "vnpay"
+                  ? "border-blush-400 bg-blush-400"
+                  : "border-blush-300"
+              }`} />
+            </div>
+          </button>
+
+          {/* COD Option */}
+          <button
+            type="button"
+            onClick={() => setSelectedPaymentMethod("cod")}
+            disabled={submitting}
+            className={`w-full rounded-2xl border-2 px-4 py-3 text-left transition-smooth-fast ${
+              selectedPaymentMethod === "cod"
+                ? "border-blush-400 bg-blush-50"
+                : "border-blush-200 bg-white hover:border-blush-300"
+            } ${submitting ? "opacity-50 cursor-not-allowed" : ""}`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-blush-900">Thanh toán tại chỗ (COD)</p>
+                <p className="text-xs text-blush-600">Thanh toán khi nhận dịch vụ - Tiện lợi</p>
+              </div>
+              <div className={`h-5 w-5 rounded-full border-2 ${
+                selectedPaymentMethod === "cod"
+                  ? "border-blush-400 bg-blush-400"
+                  : "border-blush-300"
+              }`} />
+            </div>
+          </button>
+        </div>
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button
             type="button"
             className="btn-secondary"
             onClick={() => !submitting && setShowPaymentModal(false)}
+            disabled={submitting}
           >
             Hủy
           </button>
-          <button type="button" onClick={confirmPayment} disabled={submitting} className="btn-primary">
-            {submitting ? "Đang xử lý..." : "Xác nhận thanh toán"}
+          <button
+            type="button"
+            onClick={() => selectedPaymentMethod && confirmPayment(selectedPaymentMethod)}
+            disabled={submitting || !selectedPaymentMethod}
+            className="btn-primary"
+          >
+            {submitting ? "Đang xử lý..." : "Tiếp tục"}
           </button>
         </div>
       </Modal>

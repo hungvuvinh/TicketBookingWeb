@@ -7,12 +7,13 @@ class VehicleRepository {
   }
 
   async findById(id) {
-    return Vehicle.findById(id);
+    return Vehicle.findById(id).populate("route");
   }
 
   async findAll(filter = {}, options = {}) {
     const { skip = 0, limit = 10, sort = { createdAt: -1 } } = options;
     return Vehicle.find(filter)
+      .populate("route")
       .skip(skip)
       .limit(limit)
       .sort(sort);

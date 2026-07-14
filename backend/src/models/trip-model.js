@@ -7,6 +7,14 @@ const tripSchema = new mongoose.Schema(
 			ref: "Route",
 			required: [true, "Route is required"],
 		},
+		origin: {
+			type: String,
+			required: [true, "Origin is required"],
+		},
+		destination: {
+			type: String,
+			required: [true, "Destination is required"],
+		},
 		vehicle: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Vehicle",

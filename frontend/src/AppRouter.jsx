@@ -1,10 +1,16 @@
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import CustomerPage from "./pages/CustomerPage.jsx";
 import CustomerBookingPage from "./pages/CustomerBookingPage.jsx";
+import CustomerTicketsPage from "./pages/CustomerTicketsPage.jsx";
+import PaymentPage from "./pages/PaymentPage.jsx";
+import PaymentReturnPage from "./pages/PaymentReturnPage.jsx";
+import PaymentSuccessPage from "./pages/PaymentSuccessPage.jsx";
 import DispatcherDashboardPage from "./pages/DispatcherDashboardPage.jsx";
 import DispatcherLoginPage from "./pages/DispatcherLoginPage.jsx";
 
-const API_BASE = "http://localhost:5000/api";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const SESSION_KEY = "ticketbooking-session";
 
 function formatMoney(value = 0) {
@@ -24,9 +30,8 @@ function readStoredSession() {
   }
 }
 
-function App() {
+export default function AppRouter() {
   const [session, setSession] = useState(() => readStoredSession());
-  const isDispatcherRoute = typeof window !== "undefined" && window.location.pathname.toLowerCase().endsWith("/dispatcher");
   const [authMode, setAuthMode] = useState("login");
   const [authLoading, setAuthLoading] = useState(false);
   const [authName, setAuthName] = useState("");
@@ -42,7 +47,6 @@ function App() {
   const [routePoints, setRoutePoints] = useState([]);
   const [destinationOptions, setDestinationOptions] = useState([]);
   const [searched, setSearched] = useState(false);
-  const [customerStep, setCustomerStep] = useState("search");
   const [trips, setTrips] = useState([]);
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [seats, setSeats] = useState([]);
@@ -54,6 +58,11 @@ function App() {
   const [customerName, setCustomerName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
+  
+  const [orderData, setOrderData] = useState(null);
+  const [paymentData, setPaymentData] = useState(null);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (session) {
@@ -70,12 +79,6 @@ function App() {
       setEmail(session.profile?.email || "");
     }
   }, [session]);
-
-  useEffect(() => {
-    if (session?.role === "dispatcher" && !isDispatcherRoute) {
-      window.location.replace("/dispatcher");
-    }
-  }, [isDispatcherRoute, session]);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,7 +148,6 @@ function App() {
     setSeats([]);
     setSelectedSeats([]);
     setSearched(false);
-    setCustomerStep("search");
   };
 
   const handleLogout = () => {
@@ -292,25 +294,26 @@ function App() {
 
     setLoadingTrips(true);
     try {
-      const query = new URLSearchParams({
+        const query = new URLSearchParams({
         origin: origin.trim(),
         destination: destination.trim(),
-      });
+        date: date,
+        });
 
-      const response = await fetch(`${API_BASE}/trips/search?${query.toString()}`);
-      const payload = await response.json();
+        const response = await fetch(`${API_BASE}/trips/search?${query.toString()}`);
+        const payload = await response.json();
 
-      if (!response.ok || !payload.success) {
+        if (!response.ok || !payload.success) {
         throw new Error(payload.message || "Không thể tìm chuyến.");
-      }
+        }
 
-      setTrips(payload.data || []);
-      setCustomerStep("booking");
+        setTrips(payload.data || []);
+        navigate('/booking');
     } catch (requestError) {
-      setTrips([]);
-      setError(requestError.message || "Đã có lỗi khi tìm chuyến.");
+        setTrips([]);
+        setError(requestError.message || "Đã có lỗi khi tìm chuyến.");
     } finally {
-      setLoadingTrips(false);
+        setLoadingTrips(false);
     }
   };
 
@@ -349,24 +352,23 @@ function App() {
     });
   };
 
-  const submitBooking = async (event) => {
-    if (event && event.preventDefault) event.preventDefault();
+  const submitBooking = async (paymentMethod = "cod") => {
     setError("");
     setSuccessMessage("");
 
     if (!selectedTrip) {
       setError("Bạn chưa chọn chuyến đi.");
-      return;
+      return false;
     }
 
     if (selectedSeats.length === 0) {
       setError("Vui lòng chọn ít nhất 1 ghế.");
-      return;
+      return false;
     }
 
     if (!customerName.trim() || !phoneNumber.trim()) {
       setError("Vui lòng nhập tên và số điện thoại.");
-      return;
+      return false;
     }
 
     setSubmitting(true);
@@ -386,7 +388,8 @@ function App() {
             ...(email.trim() ? { email: email.trim() } : {}),
           },
           payment: {
-            payment_type: "online",
+            payment_type: paymentMethod,
+            bankCode: "",
           },
         }),
       });
@@ -397,10 +400,19 @@ function App() {
         throw new Error(payload.message || "Đặt vé không thành công.");
       }
 
-      setSuccessMessage("Đặt vé thành công. Vé đã được lưu vào hệ thống.");
+      // Lưu order và payment data để sử dụng trong Payment pages
+      setOrderData(payload.data?.order);
+      setPaymentData(payload.data?.payment);
+
+      // Reset form
       setSelectedSeats([]);
-      await loadSeats(selectedTrip);
-      return true;
+
+      return {
+        success: true,
+        order: payload.data?.order,
+        payment: payload.data?.payment,
+        vnpay_payment_url: payload.data?.vnpay_payment_url,
+      };
     } catch (requestError) {
       setError(requestError.message || "Đã có lỗi khi đặt vé.");
       return false;
@@ -409,7 +421,10 @@ function App() {
     }
   };
 
-  if (isDispatcherRoute) {
+  // Router logic dựa trên dispatcher route
+  const isDispatcher = window.location.pathname.toLowerCase().includes("/dispatcher");
+
+  if (isDispatcher) {
     if (session?.role === "dispatcher") {
       return (
         <DispatcherDashboardPage
@@ -436,77 +451,150 @@ function App() {
       />
     );
   }
-
   return (
-    customerStep === "search" ? (
-      <CustomerPage
-        session={session}
-        handleLogout={handleLogout}
-        authMode={authMode}
-        setAuthMode={setAuthMode}
-        authLoading={authLoading}
-        authName={authName}
-        setAuthName={setAuthName}
-        authPhone={authPhone}
-        setAuthPhone={setAuthPhone}
-        authEmail={authEmail}
-        setAuthEmail={setAuthEmail}
-        authPassword={authPassword}
-        setAuthPassword={setAuthPassword}
-        submitCustomerAuth={submitCustomerAuth}
-        origin={origin}
-        setOrigin={setOrigin}
-        date={date}
-        setDate={setDate}
-        destination={destination}
-        setDestination={setDestination}
-        handleSearch={handleSearch}
-        loadingTrips={loadingTrips}
-        routePoints={routePoints}
-        destinationOptions={destinationOptions}
-        handleOriginChange={handleOriginChange}
-        error={error}
-        successMessage={successMessage}
-        setError={setError}
-        setSuccessMessage={setSuccessMessage}
+    <Routes>
+      {/* Customer Routes */}
+      <Route
+        path="/"
+        element={
+          <CustomerPage
+            session={session}
+            handleLogout={handleLogout}
+            authMode={authMode}
+            setAuthMode={setAuthMode}
+            authLoading={authLoading}
+            authName={authName}
+            setAuthName={setAuthName}
+            authPhone={authPhone}
+            setAuthPhone={setAuthPhone}
+            authEmail={authEmail}
+            setAuthEmail={setAuthEmail}
+            authPassword={authPassword}
+            setAuthPassword={setAuthPassword}
+            submitCustomerAuth={submitCustomerAuth}
+            origin={origin}
+            setOrigin={setOrigin}
+            date={date}
+            setDate={setDate}
+            destination={destination}
+            setDestination={setDestination}
+            handleSearch={handleSearch}
+            loadingTrips={loadingTrips}
+            routePoints={routePoints}
+            destinationOptions={destinationOptions}
+            handleOriginChange={handleOriginChange}
+            error={error}
+            successMessage={successMessage}
+            setError={setError}
+            setSuccessMessage={setSuccessMessage}
+          />
+        }
       />
-    ) : (
-      <CustomerBookingPage
-        session={session}
-        handleLogout={handleLogout}
-        handleBackToSearch={() => {
-          setCustomerStep("search");
-          setError("");
-          setSuccessMessage("");
-        }}
-        origin={origin}
-        date={date}
-        destination={destination}
-        searched={searched}
-        trips={trips}
-        selectedTrip={selectedTrip}
-        loadSeats={loadSeats}
-        loadingSeats={loadingSeats}
-        seats={seats}
-        selectedSeats={selectedSeats}
-        toggleSeat={toggleSeat}
-        customerName={customerName}
-        setCustomerName={setCustomerName}
-        phoneNumber={phoneNumber}
-        setPhoneNumber={setPhoneNumber}
-        email={email}
-        setEmail={setEmail}
-        submitBooking={submitBooking}
-        submitting={submitting}
-        totalAmount={totalAmount}
-        error={error}
-        successMessage={successMessage}
-        setError={setError}
-        setSuccessMessage={setSuccessMessage}
-        formatMoney={formatMoney}
+
+      <Route
+        path="/customer"
+        element={
+          <CustomerPage
+            session={session}
+            handleLogout={handleLogout}
+            authMode={authMode}
+            setAuthMode={setAuthMode}
+            authLoading={authLoading}
+            authName={authName}
+            setAuthName={setAuthName}
+            authPhone={authPhone}
+            setAuthPhone={setAuthPhone}
+            authEmail={authEmail}
+            setAuthEmail={setAuthEmail}
+            authPassword={authPassword}
+            setAuthPassword={setAuthPassword}
+            submitCustomerAuth={submitCustomerAuth}
+            origin={origin}
+            setOrigin={setOrigin}
+            date={date}
+            setDate={setDate}
+            destination={destination}
+            setDestination={setDestination}
+            handleSearch={handleSearch}
+            loadingTrips={loadingTrips}
+            routePoints={routePoints}
+            destinationOptions={destinationOptions}
+            handleOriginChange={handleOriginChange}
+            error={error}
+            successMessage={successMessage}
+            setError={setError}
+            setSuccessMessage={setSuccessMessage}
+          />
+        }
       />
-    )
+      
+      <Route
+        path="/booking"
+        element={
+          <CustomerBookingPage
+            session={session}
+            handleLogout={handleLogout}
+            handleBackToSearch={() => {
+              setError("");
+              setSuccessMessage("");
+              navigate("/");
+            }}
+            origin={origin}
+            date={date}
+            destination={destination}
+            searched={searched}
+            trips={trips}
+            selectedTrip={selectedTrip}
+            loadSeats={loadSeats}
+            loadingSeats={loadingSeats}
+            seats={seats}
+            selectedSeats={selectedSeats}
+            toggleSeat={toggleSeat}
+            customerName={customerName}
+            setCustomerName={setCustomerName}
+            phoneNumber={phoneNumber}
+            setPhoneNumber={setPhoneNumber}
+            email={email}
+            setEmail={setEmail}
+            submitBooking={submitBooking}
+            submitting={submitting}
+            totalAmount={totalAmount}
+            error={error}
+            successMessage={successMessage}
+            setError={setError}
+            setSuccessMessage={setSuccessMessage}
+            formatMoney={formatMoney}
+          />
+        }
+      />
+
+      <Route
+        path="/tickets"
+        element={
+          session?.role === "customer" ? (
+            <CustomerTicketsPage
+              session={session}
+              handleLogout={handleLogout}
+              error={error}
+              successMessage={successMessage}
+              setError={setError}
+              setSuccessMessage={setSuccessMessage}
+            />
+            ) : (
+              <Navigate to="/" replace />
+            )
+        }
+      />
+
+      <Route path="/payment" element={<PaymentPage />} />
+      <Route path="/payment-return" element={<PaymentReturnPage />} />
+      <Route path="/payment-success" element={<PaymentSuccessPage />} />
+
+      {/* Dispatcher Route */}
+      <Route path="/dispatcher" element={<Navigate to="/dispatcher/login" replace />} />
+
+      {/* Catch all */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
-
-export default App;

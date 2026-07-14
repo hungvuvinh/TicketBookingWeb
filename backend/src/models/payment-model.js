@@ -38,6 +38,18 @@ const paymentSchema = new mongoose.Schema(
 			enum: ["pending", "success", "failed", "refunded"],
 			default: "pending",
 		},
+		vnpay_transaction_id: {
+			type: String,
+			trim: true,
+		},
+		vnpay_response_code: {
+			type: String,
+			trim: true,
+		},
+		bank_code: {
+			type: String,
+			trim: true,
+		}
 	},
 	{
 		timestamps: true,

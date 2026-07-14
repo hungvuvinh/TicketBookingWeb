@@ -6,14 +6,15 @@ import Navbar from "../components/Navbar.jsx";
 const API_BASE = "http://localhost:5000/api";
 
 const SECTIONS = [
-  { key: "trips", label: "Quản lý chuyến", icon: "🚌" },
-  { key: "routes", label: "Quản lý tuyến", icon: "🗺️" },
-  { key: "vehicles", label: "Quản lý xe", icon: "🚐" },
-  { key: "operators", label: "Quản lý nhân viên", icon: "👤" },
+  { key: "trips", label: "Quản lý chuyến" },
+  { key: "routes", label: "Quản lý tuyến" },
+  { key: "vehicles", label: "Quản lý xe" },
+  { key: "operators", label: "Quản lý nhân viên"},
 ];
 
 const emptyTripForm = {
   routeId: "",
+  direction: "forward",
   vehicleId: "",
   driverId: "",
   assistantId: "",
@@ -31,6 +32,7 @@ const emptyVehicleForm = {
   total_seats: 45,
   license_plate: "",
   seat_price: 150000,
+  routeId: "",
 };
 
 const emptyOperatorForm = {
@@ -95,6 +97,9 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
 
   const [loading, setLoading] = useState(false);
   const [loadingTrips, setLoadingTrips] = useState(false);
+  const [tripFilterDate, setTripFilterDate] = useState("");
+
+  const [vehicleRouteMap, setVehicleRouteMap] = useState({});
 
   const [modalType, setModalType] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
@@ -109,6 +114,28 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
 
   const drivers = useMemo(() => operators.filter((op) => op.role === "driver"), [operators]);
   const assistants = useMemo(() => operators.filter((op) => op.role === "assistant"), [operators]);
+
+  const filteredTrips = useMemo(() => {
+    if (!tripFilterDate) return trips;
+    return trips.filter((trip) => {
+      const tripDate = toDateKey(trip.departure_time);
+      return tripDate === tripFilterDate;
+    });
+  }, [trips, tripFilterDate]);
+
+  const availableVehicles = useMemo(() => {
+    if (!tripForm.routeId) return vehicles;
+    return vehicles.filter((vehicle) => {
+      const vehicleRouteId = vehicle?.route?._id || vehicle?.route;
+      return !vehicleRouteId || vehicleRouteId === tripForm.routeId;
+    });
+  }, [vehicles, tripForm.routeId]);
+
+  useEffect(() => {
+    if (tripForm.vehicleId && !availableVehicles.some((vehicle) => vehicle._id === tripForm.vehicleId)) {
+      setTripForm((prev) => ({ ...prev, vehicleId: "" }));
+    }
+  }, [availableVehicles, tripForm.vehicleId]);
 
   const fetchJson = async (url, options) => {
     const res = await fetch(url, options);
@@ -166,13 +193,13 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
   }, []);
 
   const groupedTrips = useMemo(() => {
-    return trips.reduce((groups, trip) => {
+    return filteredTrips.reduce((groups, trip) => {
       const key = toDateKey(trip.departure_time);
       if (!groups[key]) groups[key] = [];
       groups[key].push(trip);
       return groups;
     }, {});
-  }, [trips]);
+  }, [filteredTrips]);
 
   const tripGroupKeys = useMemo(() => Object.keys(groupedTrips).sort(), [groupedTrips]);
 
@@ -200,8 +227,7 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
 
     if (type === "trip") {
       setTripForm({
-        routeId: item.route?._id || item.route || "",
-        vehicleId: item.vehicle?._id || item.vehicle || "",
+        routeId: item.route?._id || item.route || "",        direction: item.origin === item.route?.origin ? "forward" : "reverse",        vehicleId: item.vehicle?._id || item.vehicle || "",
         driverId: item.driver?._id || item.driver || "",
         assistantId: item.assistant?._id || item.assistant || "",
         departureTime: toDatetimeLocal(item.departure_time),
@@ -218,6 +244,7 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
         total_seats: item.total_seats || 45,
         license_plate: item.license_plate || "",
         seat_price: item.seat_price || 0,
+        routeId: item.route?._id || item.route || "",
       });
     } else if (type === "operator") {
       setOperatorForm({
@@ -269,6 +296,7 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
       if (modalType === "trip") {
         const body = {
           route_id: tripForm.routeId,
+          direction: tripForm.direction,
           vehicle_id: tripForm.vehicleId,
           driver_id: tripForm.driverId,
           assistant_id: tripForm.assistantId,
@@ -320,6 +348,7 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
           total_seats: Number(vehicleForm.total_seats),
           license_plate: vehicleForm.license_plate.trim(),
           seat_price: Number(vehicleForm.seat_price),
+          route_id: vehicleForm.routeId || undefined,
         };
 
         if (editingItem) {
@@ -415,7 +444,7 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
         <header className="card-panel animate-rise-up">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-blush-500">Dashboard</p>
           <h1 className="mt-2 font-display text-3xl font-bold text-blush-900">
-            Xin chào, {session?.profile?.name || "điều phối viên"} 👋
+            Xin chào, {session?.profile?.name || "điều phối viên"}
           </h1>
           <p className="mt-2 text-blush-600">Quản lý toàn bộ hoạt động vận hành xe khách tại đây.</p>
         </header>
@@ -451,7 +480,29 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
             {activeSection === "trips" && (
               <div className="card-panel">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="font-display text-2xl font-bold text-blush-900">Danh sách chuyến</h2>
+                  <div className="space-y-3">
+                    <h2 className="font-display text-2xl font-bold text-blush-900">Danh sách chuyến</h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="flex items-center gap-2 text-sm text-blush-600">
+                        <span>Ngày đi:</span>
+                        <input
+                          type="date"
+                          className="input-field h-10"
+                          value={tripFilterDate}
+                          onChange={(e) => setTripFilterDate(e.target.value)}
+                        />
+                      </label>
+                      {tripFilterDate ? (
+                        <button
+                          type="button"
+                          className="text-sm font-semibold text-blush-600 hover:text-blush-800"
+                          onClick={() => setTripFilterDate("")}
+                        >
+                          Xóa lọc
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
                   <div className="flex gap-2">
                     <button type="button" className="btn-secondary" onClick={loadTrips}>
                       {loadingTrips ? "Đang tải..." : "Tải lại"}
@@ -486,8 +537,8 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
                               {groupedTrips[groupKey].map((trip) => (
                                 <tr key={trip._id} className="border-b border-blush-50 hover:bg-blush-50/40">
                                   <td className="px-4 py-3">
-                                    <div className="font-semibold">{trip.route?.origin}</div>
-                                    <div className="text-blush-500">→ {trip.route?.destination}</div>
+                                    <div className="font-semibold">{trip.origin}</div>
+                                    <div className="text-blush-500">→ {trip.destination}</div>
                                   </td>
                                   <td className="px-4 py-3">{trip.vehicle?.license_plate || "-"}</td>
                                   <td className="px-4 py-3">
@@ -568,6 +619,7 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
                         <tr className="border-b border-blush-100 bg-blush-50/50 text-left text-blush-700">
                           <th className="px-4 py-3 font-semibold">Biển số</th>
                           <th className="px-4 py-3 font-semibold">Loại xe</th>
+                          <th className="px-4 py-3 font-semibold">Tuyến</th>
                           <th className="px-4 py-3 font-semibold">Số ghế</th>
                           <th className="px-4 py-3 font-semibold">Giá vé</th>
                           <th className="px-4 py-3 font-semibold">Thao tác</th>
@@ -578,6 +630,7 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
                           <tr key={vehicle._id} className="border-b border-blush-50 hover:bg-blush-50/40">
                             <td className="px-4 py-3 font-semibold">{vehicle.license_plate}</td>
                             <td className="px-4 py-3">{vehicle.vehicle_type}</td>
+                            <td className="px-4 py-3">{vehicle.route ? `${vehicle.route.origin} → ${vehicle.route.destination}` : "-"}</td>
                             <td className="px-4 py-3">{vehicle.total_seats}</td>
                             <td className="px-4 py-3">{formatMoney(vehicle.seat_price)}</td>
                             <td className="px-4 py-3">
@@ -612,6 +665,7 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
                           <th className="px-4 py-3 font-semibold">Vai trò</th>
                           <th className="px-4 py-3 font-semibold">Điện thoại</th>
                           <th className="px-4 py-3 font-semibold">Email</th>
+                          <th className="px-4 py-3 font-semibold">Bằng lái (Lái xe)</th>
                           <th className="px-4 py-3 font-semibold">Thao tác</th>
                         </tr>
                       </thead>
@@ -622,6 +676,7 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
                             <td className="px-4 py-3 capitalize">{operator.role === "driver" ? "Lái xe" : "Phụ xe"}</td>
                             <td className="px-4 py-3">{operator.phone_number}</td>
                             <td className="px-4 py-3">{operator.email || "-"}</td>
+                            <td className="px-4 py-3">{operator.role === "driver" ? operator.license || "-" : "N/A"}</td>
                             <td className="px-4 py-3">
                               <ActionButtons type="operator" item={operator} />
                             </td>
@@ -664,6 +719,29 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
                 </select>
               </label>
               <label className="block space-y-2">
+                <span className="label-text">Hướng đi</span>
+                <select
+                  className="input-field"
+                  value={tripForm.direction}
+                  onChange={(e) => setTripForm({ ...tripForm, direction: e.target.value })}
+                  disabled={!tripForm.routeId}
+                  required
+                >
+                  {tripForm.routeId && routes.find(r => r._id === tripForm.routeId) ? (
+                    <>
+                      <option value="forward">
+                        {routes.find(r => r._id === tripForm.routeId)?.origin} → {routes.find(r => r._id === tripForm.routeId)?.destination}
+                      </option>
+                      <option value="reverse">
+                        {routes.find(r => r._id === tripForm.routeId)?.destination} → {routes.find(r => r._id === tripForm.routeId)?.origin}
+                      </option>
+                    </>
+                  ) : (
+                    <option value="">Chọn tuyến trước</option>
+                  )}
+                </select>
+              </label>
+              <label className="block space-y-2">
                 <span className="label-text">Xe</span>
                 <select
                   className="input-field"
@@ -672,9 +750,10 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
                   required
                 >
                   <option value="">Chọn xe</option>
-                  {vehicles.map((vehicle) => (
+                  {availableVehicles.map((vehicle) => (
                     <option key={vehicle._id} value={vehicle._id}>
-                      {vehicle.license_plate} ({vehicle.total_seats} ghế)
+
+                      {vehicle.license_plate} ({vehicle.total_seats} ghế){vehicle.route ? ` — ${vehicle.route.origin} → ${vehicle.route.destination}` : ""}
                     </option>
                   ))}
                 </select>
@@ -770,6 +849,21 @@ export default function DispatcherDashboardPage({ session, handleLogout }) {
                   onChange={(e) => setVehicleForm({ ...vehicleForm, vehicle_type: e.target.value })}
                   required
                 />
+              </label>
+              <label className="block space-y-2">
+                <span className="label-text">Tuyến xe (tùy chọn)</span>
+                <select
+                  className="input-field"
+                  value={vehicleForm.routeId}
+                  onChange={(e) => setVehicleForm({ ...vehicleForm, routeId: e.target.value })}
+                >
+                  <option value="">Không gắn tuyến</option>
+                  {routes.map((route) => (
+                    <option key={route._id} value={route._id}>
+                      {route.origin} → {route.destination}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="block space-y-2">
                 <span className="label-text">Biển số</span>

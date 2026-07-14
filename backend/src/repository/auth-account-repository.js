@@ -21,6 +21,14 @@ class AuthAccountRepository {
     return AuthAccount.findOne({ account_ref: ref });
   }
 
+  async findOne(filter) {
+    return AuthAccount.findOne(filter);
+  }
+
+  async findOneWithFields(filter, fields) {
+    return AuthAccount.findOne(filter).select(fields);
+  }
+
   async update(id, updateData) {
     return AuthAccount.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
   }

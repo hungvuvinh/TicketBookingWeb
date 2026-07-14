@@ -10,6 +10,8 @@ export default function DispatcherLoginPage({
   authLoading,
   error,
   successMessage,
+  setError,
+  setSuccessMessage,
 }) {
   return (
     <main className="min-h-screen animate-rise-up text-blush-900">
@@ -69,8 +71,16 @@ export default function DispatcherLoginPage({
 
       {(error || successMessage) && (
         <div className="mx-auto max-w-md space-y-3 px-4 pb-8">
-          {error ? <Alert type="error">{error}</Alert> : null}
-          {successMessage ? <Alert type="success">{successMessage}</Alert> : null}
+          {error ? (
+            <Alert type="error" open={Boolean(error)} onClose={() => setError("")}>
+              {error}
+            </Alert>
+          ) : null}
+          {successMessage ? (
+            <Alert type="success" open={Boolean(successMessage)} onClose={() => setSuccessMessage("")}>
+              {successMessage}
+            </Alert>
+          ) : null}
         </div>
       )}
 

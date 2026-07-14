@@ -3,6 +3,7 @@ const ticketRepository = require("../repository/ticket-repository");
 const customerRepository = require("../repository/customer-repository");
 const orderRepository = require("../repository/order-repository");
 const paymentRepository = require("../repository/payment-repository");
+const vnpayService = require("./vnpay-service");
 require("../models/vehicle-model");
 
 const getVehicleTotalSeats = (vehicle) =>
@@ -147,40 +148,83 @@ class BookingService {
     });
 
     const amount = trip.vehicle.seat_price * seatNumbers.length;
+    const paymentType = String(paymentPayload.payment_type).trim().toLowerCase();
+
+    // Xác định status payment dựa trên loại thanh toán
+    let paymentStatus = "success"; // Mặc định cho COD hoặc thanh toán trực tiếp
+    if (paymentType === "vnpay") {
+      paymentStatus = "pending"; // VNPay chưa thanh toán
+    }
 
     const payment = await paymentRepository.create({
       amount,
       customer: customer._id,
       executed_at: new Date().toISOString(),
       order: order._id,
-      payment_type: String(paymentPayload.payment_type).trim(),
+      payment_type: paymentType,
       reference_number:
         paymentPayload.reference_number && String(paymentPayload.reference_number).trim()
           ? String(paymentPayload.reference_number).trim()
           : buildPaymentReference(),
-      status: "success",
+      status: paymentStatus,
     });
 
-    order.status = "paid";
-    await orderRepository.save(order);
+    // Nếu là thanh toán trực tiếp (COD, cash), cập nhật status ngay
+    if (paymentType !== "vnpay") {
+      order.status = "paid";
+      await orderRepository.save(order);
 
-    await ticketRepository.updateMany(
-      {
-        trip: trip._id,
-        seat_number: { $in: seatNumbers },
-        status: "pending",
-      },
-      {
-        $set: { status: "booked" },
+      await ticketRepository.updateMany(
+        {
+          trip: trip._id,
+          seat_number: { $in: seatNumbers },
+          status: "pending",
+        },
+        {
+          $set: { status: "booked" },
+        }
+      );
+
+      const finalOrder = await orderRepository.findByIdPopulated(order._id);
+
+      return {
+        order: finalOrder,
+        payment,
+      };
+    }
+
+    // Nếu là VNPay, tạo payment URL
+    if (paymentType === "vnpay") {
+      try {
+        const orderInfo = `Thanh toan ve bus - ${seatNumbers.length} ve - ${trip.origin} -> ${trip.destination}`;
+        const paymentResult = vnpayService.createPaymentUrl({
+          orderId: payment._id.toString(),
+          amount,
+          orderInfo,
+          bankCode: paymentPayload.bankCode || "",
+          customerEmail: customer.email || "",
+          customerPhone: customer.phone_number || "",
+          ipAddress: paymentPayload.ipAddress || "127.0.0.1",
+        });
+
+        // Lưu transaction ref
+        payment.vnpay_transaction_id = paymentResult.transactionRef;
+        await payment.save();
+
+        // Order vẫn pending cho đến khi thanh toán thành công
+        const finalOrder = await orderRepository.findByIdPopulated(order._id);
+
+        return {
+          order: finalOrder,
+          payment,
+          vnpay_payment_url: paymentResult.paymentUrl,
+          transactionRef: paymentResult.transactionRef,
+        };
+      } catch (error) {
+        console.error("VNPay payment creation error:", error);
+        throw new Error(`Failed to create VNPay payment: ${error.message}`);
       }
-    );
-
-    const finalOrder = await orderRepository.findByIdPopulated(order._id);
-
-    return {
-      order: finalOrder,
-      payment,
-    };
+    }
   }
 }
 

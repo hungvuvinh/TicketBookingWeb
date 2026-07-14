@@ -20,6 +20,11 @@ const vehicleSchema = new mongoose.Schema(
             trim: true,
             unique: true
         },
+        route: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Route",
+            required: false,
+        },
         seat_price:{
             type: Number,
             required: [true, "Seat price is required"],

@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const orderSchema = new mongoose.Schema(
   {
     booked_at: {
-      type: String,
+      type: Date,
       required: [true, "Booked at is required"],
     },
     customer: {

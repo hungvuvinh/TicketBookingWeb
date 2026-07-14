@@ -1,4 +1,5 @@
 const vehicleRepository = require('../repository/vehicle-repository');
+const routeRepository = require('../repository/route-repository');
 
 const normalizeVehicle = (vehicle) => {
   if (!vehicle) return null;
@@ -20,9 +21,17 @@ const listVehicles = async (req, res) => {
 
 const createVehicle = async (req, res) => {
   try {
-    const { vehicle_type, total_seats, license_plate, seat_price } = req.body || {};
+    const { vehicle_type, total_seats, license_plate, seat_price, route_id } = req.body || {};
     if (!vehicle_type || !total_seats || !license_plate || seat_price === undefined) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    let route = null;
+    if (route_id) {
+      route = await routeRepository.findById(route_id);
+      if (!route) {
+        return res.status(404).json({ success: false, message: 'Route not found' });
+      }
     }
 
     const vehicle = await vehicleRepository.create({
@@ -30,6 +39,7 @@ const createVehicle = async (req, res) => {
       total_seats: Number(total_seats),
       license_plate: String(license_plate).trim(),
       seat_price: Number(seat_price),
+      ...(route ? { route: route._id } : {}),
     });
 
     return res.status(201).json({ success: true, message: 'Vehicle created successfully', data: normalizeVehicle(vehicle) });
@@ -41,12 +51,21 @@ const createVehicle = async (req, res) => {
 const updateVehicle = async (req, res) => {
   try {
     const { vehicleId } = req.params;
-    const { vehicle_type, total_seats, license_plate, seat_price } = req.body || {};
+    const { vehicle_type, total_seats, license_plate, seat_price, route_id } = req.body || {};
+
+    if (route_id) {
+      const route = await routeRepository.findById(route_id);
+      if (!route) {
+        return res.status(404).json({ success: false, message: 'Route not found' });
+      }
+    }
+
     const vehicle = await vehicleRepository.update(vehicleId, {
       ...(vehicle_type !== undefined ? { vehicle_type: String(vehicle_type).trim() } : {}),
       ...(total_seats !== undefined ? { total_seats: Number(total_seats) } : {}),
       ...(license_plate !== undefined ? { license_plate: String(license_plate).trim() } : {}),
       ...(seat_price !== undefined ? { seat_price: Number(seat_price) } : {}),
+      ...(route_id !== undefined ? { route: route_id || null } : {}),
     });
 
     if (!vehicle) {

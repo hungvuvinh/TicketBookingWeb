@@ -5,6 +5,7 @@ const searchTrips = async (req, res) => {
   try {
     const origin = typeof req.query.origin === "string" ? req.query.origin.trim() : "";
     const destination = typeof req.query.destination === "string" ? req.query.destination.trim() : "";
+    const date = typeof req.query.date === "string" ? req.query.date.trim() : "";
 
     if (!origin || !destination) {
       return res.status(400).json({
@@ -13,7 +14,7 @@ const searchTrips = async (req, res) => {
       });
     }
 
-    const trips = await tripService.searchTrips(origin, destination);
+    const trips = await tripService.searchTrips(origin, destination, date);
 
     return res.status(200).json({
       success: true,
@@ -60,6 +61,7 @@ const createTrip = async (req, res) => {
       assistant_id,
       departure_time,
       arrival_time,
+      direction,
     } = req.body || {};
 
     const trip = await tripService.createTrip({
@@ -72,6 +74,7 @@ const createTrip = async (req, res) => {
       assistantId: assistant_id,
       departure_time,
       arrival_time,
+      direction,
     });
 
     return res.status(201).json({ success: true, message: "Trip created successfully", data: trip });
@@ -94,6 +97,7 @@ const updateTrip = async (req, res) => {
       assistant_id,
       departure_time,
       arrival_time,
+      direction,
     } = req.body || {};
 
     const trip = await tripService.updateTrip({
@@ -107,6 +111,7 @@ const updateTrip = async (req, res) => {
       assistantId: assistant_id,
       departure_time,
       arrival_time,
+      direction,
     });
 
     return res.status(200).json({ success: true, message: "Trip updated successfully", data: trip });

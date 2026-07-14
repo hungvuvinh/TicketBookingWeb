@@ -1,11 +1,13 @@
 const express = require("express");
 const { searchTrips, getTripSeats, createTrip, updateTrip, deleteTrip, listTrips } = require("../controllers/trip-controller");
 const { createBooking } = require("../controllers/booking-controller");
-const { register, login } = require("../controllers/auth-controller");
-const { register: dispatcherRegister, login: dispatcherLogin } = require('../controllers/dispatcher-auth-controller');
+const { register, login, refreshToken } = require("../controllers/auth-controller");
+const { register: dispatcherRegister, login: dispatcherLogin, refreshToken: dispatcherRefreshToken } = require('../controllers/dispatcher-auth-controller');
 const { getPointSuggestions, getDestinationsForOrigin, listRoutes, createRoute, updateRoute, deleteRoute } = require("../controllers/route-controller");
 const { listVehicles, createVehicle, updateVehicle, deleteVehicle } = require('../controllers/vehicle-controller');
 const { listOperators, createOperator, updateOperator, deleteOperator } = require('../controllers/operator-controller');
+const { createPaymentUrl, paymentReturn, paymentIpn, refundPayment, getPaymentInfo } = require("../controllers/vnpay-controller");
+const { getCustomerTickets, getTicketDetails } = require("../controllers/ticket-controller");
 const { authMiddleware, requireRole } = require('../middlewares/auth-middleware');
 
 const router = express.Router();
@@ -40,14 +42,27 @@ router.delete('/operators/:operatorId', deleteOperator);
 router.post("/bookings", createBooking);
 router.post("/auth/register", register);
 router.post("/auth/login", login);
+router.post("/auth/refresh", refreshToken);
 
 // dispatcher auth
 router.post('/dispatcher/register', dispatcherRegister);
 router.post('/dispatcher/login', dispatcherLogin);
+router.post('/dispatcher/refresh', dispatcherRefreshToken);
 
 // example protected dispatcher route (CRUD endpoints to be added later)
 router.get('/dispatcher/me', authMiddleware, requireRole('dispatcher'), (req, res) => {
   return res.status(200).json({ success: true, data: { dispatcher: req.dispatcher || null } });
 });
+
+// VNPay payment routes
+router.post("/payments/vnpay/create", createPaymentUrl);
+router.get("/payments/vnpay/return", paymentReturn);
+router.get("/payments/vnpay/ipn", paymentIpn);
+router.post("/payments/vnpay/refund", refundPayment);
+router.get("/payments/vnpay/:paymentId", getPaymentInfo);
+
+// Ticket routes
+router.get("/tickets/customer/:customerId", getCustomerTickets);
+router.get("/tickets/:ticketId", getTicketDetails);
 
 module.exports = router;

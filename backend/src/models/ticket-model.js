@@ -10,7 +10,7 @@ const ticketSchema = new mongoose.Schema(
 		status: {
 			type: String,
 			required: [true, "Status is required"],
-			enum: ["available", "booked", "pending", "cancelled"],
+			enum: ["available", "booked", "pending"],
 			default: "available",
 		},
 		trip: {

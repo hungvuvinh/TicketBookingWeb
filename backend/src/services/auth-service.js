@@ -1,9 +1,11 @@
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const customerRepository = require('../repository/customer-repository');
 const emailVerificationService = require('./email-verification-service');
 const authAccountRepository = require('../repository/auth-account-repository');
 
 const BCRYPT_SALT_ROUNDS = 10;
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
 const mapCustomerPublicProfile = (customer) => ({
   customer_id: customer._id,
@@ -59,8 +61,20 @@ class AuthService {
     const verification = await emailVerificationService.prepareVerification(customer);
     await customerRepository.save(customer);
 
+    const accessToken = jwt.sign({ sub: customer._id.toString(), role: 'user' }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ sub: customer._id.toString(), role: 'user' }, JWT_SECRET, { expiresIn: '3d' });
+
+    // Store refresh token
+    const authAccount = await authAccountRepository.findByEmail(email);
+    await authAccountRepository.update(authAccount._id, {
+      refresh_token: refreshToken,
+      refresh_token_expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+    });
+
     return {
       customer: mapCustomerPublicProfile(customer),
+      accessToken,
+      refreshToken,
       verification,
     };
   }
@@ -93,8 +107,19 @@ class AuthService {
     // load customer profile
     const customer = await customerRepository.findById(account.account_ref);
 
+    const accessToken = jwt.sign({ sub: customer._id.toString(), role: 'user' }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ sub: customer._id.toString(), role: 'user' }, JWT_SECRET, { expiresIn: '3d' });
+
+    // Store refresh token
+    await authAccountRepository.update(account._id, {
+      refresh_token: refreshToken,
+      refresh_token_expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+    });
+
     return {
       customer: mapCustomerPublicProfile(customer),
+      accessToken,
+      refreshToken,
       verification: {
         required: !account.email_verified,
         message: account.email_verified
@@ -102,6 +127,47 @@ class AuthService {
           : 'Email verification scaffold is ready but the request flow is not enabled yet.',
       },
     };
+  }
+
+  async refreshToken(refreshToken) {
+    if (!refreshToken) {
+      const error = new Error('Refresh token is required');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    try {
+      const payload = jwt.verify(refreshToken, JWT_SECRET);
+      
+      // Find the auth account with this refresh token
+      const account = await authAccountRepository.findOneWithFields({ refresh_token: refreshToken }, '+refresh_token +refresh_token_expires_at');
+      
+      if (!account) {
+        const error = new Error('Invalid refresh token');
+        error.statusCode = 401;
+        throw error;
+      }
+
+      if (new Date() > account.refresh_token_expires_at) {
+        const error = new Error('Refresh token has expired');
+        error.statusCode = 401;
+        throw error;
+      }
+
+      // Generate new access token
+      const customer = await customerRepository.findById(account.account_ref);
+      const newAccessToken = jwt.sign({ sub: customer._id.toString(), role: 'user' }, JWT_SECRET, { expiresIn: '15m' });
+
+      return {
+        customer: mapCustomerPublicProfile(customer),
+        accessToken: newAccessToken,
+      };
+    } catch (error) {
+      if (error.statusCode) throw error;
+      const err = new Error('Invalid or expired refresh token');
+      err.statusCode = 401;
+      throw err;
+    }
   }
 }
 

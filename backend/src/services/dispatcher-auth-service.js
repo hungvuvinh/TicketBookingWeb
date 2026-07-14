@@ -37,16 +37,23 @@ class DispatcherAuthService {
 
     // create auth account for dispatcher
     const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
-    await authAccountRepository.create({
+    const authAccount = await authAccountRepository.create({
       email,
       password_hash: passwordHash,
       account_type: 'dispatcher',
       account_ref: dispatcher._id,
     });
 
-    const token = jwt.sign({ sub: dispatcher._id.toString(), role: 'dispatcher' }, JWT_SECRET, { expiresIn: '8h' });
+    const accessToken = jwt.sign({ sub: dispatcher._id.toString(), role: 'dispatcher' }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ sub: dispatcher._id.toString(), role: 'dispatcher' }, JWT_SECRET, { expiresIn: '3d' });
 
-    return { dispatcher: { id: dispatcher._id, name: dispatcher.name, email: dispatcher.email }, token };
+    // Store refresh token
+    await authAccountRepository.update(authAccount._id, {
+      refresh_token: refreshToken,
+      refresh_token_expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+    });
+
+    return { dispatcher: { id: dispatcher._id, name: dispatcher.name, email: dispatcher.email }, accessToken, refreshToken };
   }
 
   async login(payload) {
@@ -76,9 +83,57 @@ class DispatcherAuthService {
     // fetch dispatcher profile
     const dispatcher = await dispatcherRepository.findById(account.account_ref);
 
-    const token = jwt.sign({ sub: dispatcher._id.toString(), role: 'dispatcher' }, JWT_SECRET, { expiresIn: '8h' });
+    const accessToken = jwt.sign({ sub: dispatcher._id.toString(), role: 'dispatcher' }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ sub: dispatcher._id.toString(), role: 'dispatcher' }, JWT_SECRET, { expiresIn: '3d' });
 
-    return { dispatcher: { id: dispatcher._id, name: dispatcher.name, email: dispatcher.email }, token };
+    // Store refresh token
+    await authAccountRepository.update(account._id, {
+      refresh_token: refreshToken,
+      refresh_token_expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+    });
+
+    return { dispatcher: { id: dispatcher._id, name: dispatcher.name, email: dispatcher.email }, accessToken, refreshToken };
+  }
+
+  async refreshToken(refreshToken) {
+    if (!refreshToken) {
+      const error = new Error('Refresh token is required');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    try {
+      const payload = jwt.verify(refreshToken, JWT_SECRET);
+      
+      // Find the auth account with this refresh token
+      const account = await authAccountRepository.findOneWithFields({ refresh_token: refreshToken }, '+refresh_token +refresh_token_expires_at');
+      
+      if (!account) {
+        const error = new Error('Invalid refresh token');
+        error.statusCode = 401;
+        throw error;
+      }
+
+      if (new Date() > account.refresh_token_expires_at) {
+        const error = new Error('Refresh token has expired');
+        error.statusCode = 401;
+        throw error;
+      }
+
+      // Generate new access token
+      const dispatcher = await dispatcherRepository.findById(account.account_ref);
+      const newAccessToken = jwt.sign({ sub: dispatcher._id.toString(), role: 'dispatcher' }, JWT_SECRET, { expiresIn: '15m' });
+
+      return {
+        dispatcher: { id: dispatcher._id, name: dispatcher.name, email: dispatcher.email },
+        accessToken: newAccessToken,
+      };
+    } catch (error) {
+      if (error.statusCode) throw error;
+      const err = new Error('Invalid or expired refresh token');
+      err.statusCode = 401;
+      throw err;
+    }
   }
 }
 
