@@ -43,10 +43,7 @@ export default function PaymentPage() {
 
   const handlePaymentMethodSelect = (method) => {
     setSelectedPaymentMethod(method);
-    if (method === "cod") {
-      // COD - xác nhận ngay
-      handleConfirmPayment("cod");
-    } else {
+    if (method === "vnpay") {
       // VNPay - show confirm modal
       setShowConfirmModal(true);
     }
@@ -86,29 +83,6 @@ export default function PaymentPage() {
         } else {
           throw new Error("Không nhận được link thanh toán");
         }
-      } else if (method === "cod") {
-        // COD - update order status to paid
-        const response = await fetch(
-          `${API_BASE}/orders/${order._id}/confirm`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentMethod: "cod" }),
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error("Lỗi khi xác nhận đơn hàng");
-        }
-
-        // Redirect đến payment success page
-        navigate("/payment-success", {
-          state: {
-            orderId: order._id,
-            method: "cod",
-            message: "Đặt vé thành công! Vui lòng thanh toán tại quầy."
-          }
-        });
       }
     } catch (err) {
       console.error("Payment error:", err);
@@ -209,42 +183,6 @@ export default function PaymentPage() {
                   : "border-blush-200 group-hover:border-blush-300"
               }`}>
                 {selectedPaymentMethod === "vnpay" && (
-                  <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                      fillRule="evenodd"
-                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                )}
-              </div>
-            </div>
-          </button>
-
-          {/* COD Option */}
-          <button
-            type="button"
-            onClick={() => handlePaymentMethodSelect("cod")}
-            disabled={loading}
-            className={`group card-hover relative w-full rounded-3xl border-2 px-6 py-5 text-left transition-smooth-fast ${
-              selectedPaymentMethod === "cod"
-                ? "border-blush-400 bg-gradient-to-r from-blush-50 to-white shadow-lg"
-                : "border-blush-100 bg-white hover:border-blush-300"
-            } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h3 className="font-semibold text-blush-900">Thanh toán tại chỗ (COD)</h3>
-                <p className="mt-1 text-sm text-blush-600">
-                  Thanh toán khi nhận dịch vụ - Tiện lợi & linh hoạt
-                </p>
-              </div>
-              <div className={`ml-4 h-6 w-6 rounded-full border-2 flex items-center justify-center transition-smooth-fast ${
-                selectedPaymentMethod === "cod"
-                  ? "border-blush-400 bg-blush-400"
-                  : "border-blush-200 group-hover:border-blush-300"
-              }`}>
-                {selectedPaymentMethod === "cod" && (
                   <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path
                       fillRule="evenodd"

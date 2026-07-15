@@ -399,7 +399,7 @@ export default function AppRouter() {
     });
   };
 
-  const submitBooking = async (paymentMethod = "cod") => {
+  const submitBooking = async (paymentMethod = "vnpay") => {
     setError("");
     setSuccessMessage("");
 

@@ -28,9 +28,6 @@ export default function DispatcherLoginPage({
               điều phối viên
             </span>
           </h1>
-          <p className="max-w-lg text-base leading-relaxed text-blush-700">
-            Quản lý chuyến xe, tuyến đường, phương tiện và nhân sự vận hành trên một bảng điều khiển gọn gàng, hiện đại.
-          </p>
           <div className="rounded-3xl border border-blush-100 bg-blush-50/80 px-5 py-4 text-sm font-medium text-blush-700">
             Chỉ dành cho nhân sự được ủy quyền
           </div>

@@ -169,7 +169,7 @@ export default function PaymentSuccessPage() {
                 <div className="mt-2 flex items-end justify-between">
                   <div>
                     <p className="text-2xl font-bold text-blush-900">{ticketsCount}</p>
-                    <p className="text-sm text-blush-600">vé {method === "cod" ? "COD" : "VNPay"}</p>
+                    <p className="text-sm text-blush-600">vé</p>
                   </div>
                   <p className="text-xs font-mono text-blush-600">
                     Mã đơn: {orderData._id}
@@ -194,14 +194,6 @@ export default function PaymentSuccessPage() {
           </section>
         )}
 
-        {/* Payment Method Info */}
-        {method === "cod" && (
-          <section className="rounded-2xl bg-amber-50/80 border border-amber-200/80 px-5 py-4">
-            <p className="text-sm text-amber-800">
-              <span className="font-semibold">Thanh toán tại chỗ (COD):</span> Vui lòng thanh toán tiền vé khi nhân viên thu tiền. Thực hiện thanh toán đầy đủ để tránh các rắc rối không cần thiết.
-            </p>
-          </section>
-        )}
 
         {/* Info */}
         <section className="rounded-2xl bg-blue-50/80 border border-blue-200/80 px-5 py-4">
